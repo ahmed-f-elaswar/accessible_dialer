@@ -45,4 +45,17 @@ object PhoneAccounts {
                 it.id == ref.id
         }
     }
+
+    /**
+     * Returns a human-readable label for a [PhoneAccountHandle] (e.g. "SIM 1",
+     * carrier name, or the handle id as a fallback). Returns null if no label
+     * can be resolved or [handle] is null.
+     */
+    fun labelFor(context: Context, handle: PhoneAccountHandle?): String? {
+        if (handle == null) return null
+        val tm = context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager ?: return null
+        val pa = runCatching { tm.getPhoneAccount(handle) }.getOrNull()
+        return pa?.label?.toString()?.takeIf { it.isNotBlank() }
+            ?: handle.id.takeIf { it.isNotBlank() }
+    }
 }

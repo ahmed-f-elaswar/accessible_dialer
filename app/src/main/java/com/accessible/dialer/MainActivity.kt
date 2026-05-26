@@ -31,7 +31,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // If launched with tel: URI, prefill it in the dialpad.
         val initialNumber: String? = when (intent?.action) {
-            Intent.ACTION_DIAL, Intent.ACTION_VIEW -> intent?.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart
+            Intent.ACTION_DIAL, Intent.ACTION_VIEW, Intent.ACTION_CALL ->
+                intent?.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart
             else -> null
         }
         // CATEGORY_APP_CONTACTS is set by the launcher when the user taps the "Contacts"
@@ -39,25 +40,36 @@ class MainActivity : ComponentActivity() {
         // tab instead of opening on the dialpad.
         val startOnContacts: Boolean =
             intent?.categories?.contains(Intent.CATEGORY_APP_CONTACTS) == true
+        // When another app hands us a tel: number we behave like a system dialer and place
+        // the call immediately instead of waiting for the user to confirm on the keypad.
+        val autoCall: Boolean = !initialNumber.isNullOrBlank()
         setContent {
-            AppRoot(initialNumber = initialNumber, startOnContacts = startOnContacts)
+            AppRoot(
+                initialNumber = initialNumber,
+                startOnContacts = startOnContacts,
+                autoCall = autoCall,
+            )
         }
     }
 }
 
 @Composable
-private fun AppRoot(initialNumber: String?, startOnContacts: Boolean) {
+private fun AppRoot(initialNumber: String?, startOnContacts: Boolean, autoCall: Boolean) {
     val context = LocalContext.current
     val themeMode by SettingsRepository.theme.collectAsState()
     val textScale by SettingsRepository.textScale.collectAsState()
 
     AccessibleDialerTheme(themeMode = themeMode, textScale = textScale) {
-        AppContent(initialNumber = initialNumber, startOnContacts = startOnContacts)
+        AppContent(
+            initialNumber = initialNumber,
+            startOnContacts = startOnContacts,
+            autoCall = autoCall,
+        )
     }
 }
 
 @Composable
-private fun AppContent(initialNumber: String?, startOnContacts: Boolean) {
+private fun AppContent(initialNumber: String?, startOnContacts: Boolean, autoCall: Boolean) {
     val context = LocalContext.current
     var permissionsGranted by remember { mutableStateOf(DialerPermissions.allGranted(context)) }
     var isDefault by remember { mutableStateOf(DefaultDialer.isDefault(context)) }
@@ -76,6 +88,17 @@ private fun AppContent(initialNumber: String?, startOnContacts: Boolean) {
 
     LaunchedEffect(Unit) {
         if (!permissionsGranted) permLauncher.launch(DialerPermissions.all)
+    }
+
+    // Fire-and-forget: if we were handed a number from outside, place the call as soon as
+    // we have the required runtime permission. We guard with `remember` so config changes
+    // (rotation, theme switch) don't re-trigger the call.
+    var didAutoCall by remember { mutableStateOf(false) }
+    LaunchedEffect(permissionsGranted, autoCall, initialNumber) {
+        if (autoCall && !didAutoCall && permissionsGranted && !initialNumber.isNullOrBlank()) {
+            didAutoCall = true
+            placeCall(context, initialNumber)
+        }
     }
 
     DialerApp(

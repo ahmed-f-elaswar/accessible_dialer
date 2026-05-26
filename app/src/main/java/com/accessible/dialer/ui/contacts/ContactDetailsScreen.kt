@@ -32,8 +32,12 @@ import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MergeType
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Person
@@ -48,14 +52,17 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,10 +78,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.accessible.dialer.R
 import com.accessible.dialer.util.ContactOps
 import com.accessible.dialer.util.RowActions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Date
@@ -114,6 +125,7 @@ internal data class ContactDetails(
     val events: List<EventItem>,
     val nickname: String,
     val note: String,
+    val storageLabels: List<String>,
 )
 
 internal data class PhoneItem(val number: String, val typeLabel: String)
@@ -163,6 +175,17 @@ internal fun ContactDetailsScreen(
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var showShareSheet by remember { mutableStateOf(false) }
+    // Recent calls render under a collapsible "History" header. Default collapsed —
+    // most users will be opening the screen for contact info, not the call log, and a
+    // collapsed default keeps the actions reachable without scrolling on small screens.
+    var historyExpanded by remember { mutableStateOf(false) }
+    // In-app picker for choosing the second contact to merge with.
+    var showMergePicker by remember { mutableStateOf(false) }
+    var pendingMergeTarget by remember { mutableStateOf<Contact?>(null) }
+    // Secondary actions (Set ringtone, Pin to home screen, Share) are hidden behind a
+    // single "More actions" row to keep the bottom action list short and easier to
+    // scan. Tapping More expands them inline.
+    var moreExpanded by remember { mutableStateOf(false) }
     val displayName = details?.name?.ifBlank { titleFallback } ?: titleFallback
 
     if (showShareSheet) {
@@ -198,6 +221,49 @@ internal fun ContactDetailsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showMergePicker) {
+        MergeContactPickerDialog(
+            currentContactId = contactId,
+            onDismiss = { showMergePicker = false },
+            onPick = { picked ->
+                showMergePicker = false
+                pendingMergeTarget = picked
+            },
+        )
+    }
+
+    pendingMergeTarget?.let { target ->
+        val scope = rememberCoroutineScope()
+        AlertDialog(
+            onDismissRequest = { pendingMergeTarget = null },
+            title = { Text(stringResource(R.string.merge_contact_title)) },
+            text = {
+                Text(stringResource(R.string.merge_contact_message, displayName, target.name.ifBlank { target.number }))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val targetId = target.id
+                    pendingMergeTarget = null
+                    scope.launch {
+                        // mergeContacts hits the ContactsProvider with applyBatch on the
+                        // calling thread; punt to IO so we don't block the frame.
+                        val ok = withContext(Dispatchers.IO) {
+                            mergeContacts(context, listOf(contactId, targetId))
+                        }
+                        // After merging, the system may reassign the aggregated contact id;
+                        // back out of the details screen so the caller refreshes its list.
+                        if (ok) onBack()
+                    }
+                }) { Text(stringResource(R.string.merge_contact_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingMergeTarget = null }) {
                     Text(stringResource(R.string.cancel))
                 }
             },
@@ -340,10 +406,49 @@ internal fun ContactDetailsScreen(
                 }
             }
 
-            if (recents.isNotEmpty()) {
-                item("rc_h") { SectionHeader(stringResource(R.string.contact_details_section_recent_calls)) }
-                items(recents, key = { "rc_" + it.id }) { rc ->
-                    RecentCallRow(rc)
+            // Always show the History section when this contact has phone numbers,
+            // even if the call log is empty \u2014 otherwise users can't tell the section
+            // exists. When empty we render a single placeholder row instead of items.
+            if (d.phones.isNotEmpty()) {
+                item("rc_h") {
+                    CollapsibleSectionHeader(
+                        text = stringResource(R.string.contact_details_section_history),
+                        expanded = historyExpanded,
+                        onToggle = { historyExpanded = !historyExpanded },
+                    )
+                }
+                if (historyExpanded) {
+                    if (recents.isEmpty()) {
+                        item("rc_empty") {
+                            Text(
+                                text = stringResource(R.string.contact_details_history_empty),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                            HorizontalDivider()
+                        }
+                    } else {
+                        items(recents, key = { "rc_" + it.id }) { rc ->
+                            RecentCallRow(rc)
+                            HorizontalDivider()
+                        }
+                    }
+                }
+            }
+
+            if (d.storageLabels.isNotEmpty()) {
+                item("st_h") { SectionHeader(stringResource(R.string.contact_details_section_storage)) }
+                items(d.storageLabels, key = { "st_" + it }) { label ->
+                    DetailRow(
+                        leadingIcon = Icons.Filled.Notes,
+                        primary = label,
+                        secondary = "",
+                        onTap = null,
+                        tapLabel = null,
+                    )
                     HorizontalDivider()
                 }
             }
@@ -359,17 +464,51 @@ internal fun ContactDetailsScreen(
                     onEdit(contactId)
                 }
                 HorizontalDivider()
-                ActionRow(Icons.Filled.MusicNote, stringResource(R.string.action_set_ringtone)) {
-                    ContactOps.setRingtone(context, contactId)
-                }
+                ActionRow(
+                    icon = Icons.Filled.MoreHoriz,
+                    label = stringResource(
+                        if (moreExpanded) R.string.action_more_collapse
+                        else R.string.action_more_expand
+                    ),
+                ) { moreExpanded = !moreExpanded }
                 HorizontalDivider()
-                ActionRow(Icons.Filled.PushPin, stringResource(R.string.action_pin_home)) {
-                    pinContactShortcut(context, contactId, displayName)
+                if (moreExpanded) {
+                    ActionRow(Icons.Filled.MusicNote, stringResource(R.string.action_set_ringtone)) {
+                        ContactOps.setRingtone(context, contactId)
+                    }
+                    HorizontalDivider()
+                    ActionRow(Icons.Filled.PushPin, stringResource(R.string.action_pin_home)) {
+                        pinContactShortcut(context, contactId, displayName)
+                    }
+                    HorizontalDivider()
+                    ActionRow(Icons.Filled.Email, stringResource(R.string.action_share_contact)) {
+                        showShareSheet = true
+                    }
+                    HorizontalDivider()
                 }
-                HorizontalDivider()
-                ActionRow(Icons.Filled.Email, stringResource(R.string.action_share_contact)) {
-                    showShareSheet = true
+                if (d.phones.isNotEmpty()) {
+                    val anyBlocked = d.phones.any {
+                        com.accessible.dialer.blocking.BlockedNumbersRepository
+                            .isBlocked(context, it.number)
+                    }
+                    ActionRow(
+                        icon = Icons.Filled.Notes,
+                        label = stringResource(
+                            if (anyBlocked) R.string.action_unblock_number
+                            else R.string.action_block_number
+                        ),
+                    ) {
+                        d.phones.forEach { p ->
+                            if (anyBlocked) ContactOps.unblockNumber(context, p.number)
+                            else ContactOps.blockNumber(context, p.number)
+                        }
+                    }
+                    HorizontalDivider()
                 }
+                ActionRow(
+                    icon = Icons.Filled.MergeType,
+                    label = stringResource(R.string.action_merge_contact),
+                ) { showMergePicker = true }
                 HorizontalDivider()
                 ActionRow(
                     icon = Icons.Filled.Notes,
@@ -448,6 +587,146 @@ private fun SectionHeader(text: String) {
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
+}
+
+/**
+ * Section header that doubles as a toggle. The whole row is a single TalkBack focusable
+ * with a Button role so screen-reader users get the expand/collapse semantics for free.
+ */
+@Composable
+private fun CollapsibleSectionHeader(
+    text: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val expandLabel = stringResource(R.string.action_more_expand)
+    val collapseLabel = stringResource(R.string.action_more_collapse)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(role = Role.Button, onClick = onToggle)
+            .semantics {
+                contentDescription = "$text, ${if (expanded) collapseLabel else expandLabel}"
+            }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+/**
+ * In-app contact picker for the "Merge with another contact" action. Reuses
+ * [ContactsViewModel] so the visible list matches the Contacts tab (same account filter,
+ * same sort order). The current contact is excluded so it can't be picked as its own
+ * merge target.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MergeContactPickerDialog(
+    currentContactId: Long,
+    onDismiss: () -> Unit,
+    onPick: (Contact) -> Unit,
+) {
+    val context = LocalContext.current
+    val vm: ContactsViewModel = viewModel(key = "merge_picker_$currentContactId")
+    LaunchedEffect(Unit) { vm.load(context) }
+    val displayed by vm.displayed.collectAsState()
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(displayed, query, currentContactId) {
+        val q = query.trim()
+        displayed.asSequence()
+            .filter { it.id != currentContactId }
+            .filter { c ->
+                q.isEmpty() ||
+                    c.name.contains(q, ignoreCase = true) ||
+                    c.number.contains(q)
+            }
+            .toList()
+    }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = { Text(stringResource(R.string.merge_picker_title)) },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                        }
+                    },
+                )
+            },
+        ) { inner ->
+            Column(Modifier.fillMaxSize().padding(inner)) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text(stringResource(R.string.contacts_search)) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+                if (filtered.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.contacts_empty))
+                    }
+                } else {
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        items(filtered, key = { it.id }) { c ->
+                            MergePickerRow(c, onPick = { onPick(c) })
+                            HorizontalDivider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MergePickerRow(contact: Contact, onPick: () -> Unit) {
+    val display = contact.name.ifBlank { contact.number }
+    val tapLabel = stringResource(R.string.merge_pick_contact, display)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onPick)
+            .semantics { contentDescription = tapLabel }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.Person,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.size(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(display, style = MaterialTheme.typography.bodyLarge)
+            if (contact.name.isNotBlank() && contact.number.isNotBlank()) {
+                Text(
+                    contact.number,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -903,6 +1182,25 @@ private fun loadDetails(context: Context, contactId: Long): ContactDetails? {
         }
     }
 
+    val storageKeys = linkedSetOf<String>()
+    cr.query(
+        ContactsContract.RawContacts.CONTENT_URI,
+        arrayOf(
+            ContactsContract.RawContacts.ACCOUNT_TYPE,
+            ContactsContract.RawContacts.ACCOUNT_NAME,
+        ),
+        "${ContactsContract.RawContacts.CONTACT_ID}=? AND ${ContactsContract.RawContacts.DELETED}=0",
+        arrayOf(contactId.toString()),
+        null,
+    )?.use { c ->
+        while (c.moveToNext()) {
+            val type = c.getString(0) ?: "null"
+            val accountName = c.getString(1) ?: "null"
+            storageKeys += "$type|$accountName"
+        }
+    }
+    val storageLabels = storageKeys.map { friendlyAccountLabel(it) }
+
     return ContactDetails(
         id = contactId,
         name = name,
@@ -915,6 +1213,7 @@ private fun loadDetails(context: Context, contactId: Long): ContactDetails? {
         events = events,
         nickname = nickname,
         note = note,
+        storageLabels = storageLabels,
     )
 }
 

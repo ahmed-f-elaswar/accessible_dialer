@@ -323,7 +323,7 @@ private fun AccountFilterDialog(
  * the mapping inline (rather than in StorageLocationsScreen) so the dialog stays
  * self-contained.
  */
-private fun friendlyAccountLabel(key: String): String {
+internal fun friendlyAccountLabel(key: String): String {
     val parts = key.split("|", limit = 2)
     val type = parts.getOrNull(0)?.takeIf { it != "null" }
     val name = parts.getOrNull(1)?.takeIf { it != "null" }

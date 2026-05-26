@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
@@ -44,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -83,6 +86,8 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
     }
 
     val active = state as? CallState.Active
+    // Whether the in-call DTMF keypad overlay is showing.
+    var showKeypad by remember { mutableStateOf(false) }
     // Localized strings for the live-region announcement that fires after a swipe
     // gesture toggles speaker or mute. We resolve them outside the pointer-input
     // lambda because stringResource is only callable from a @Composable scope.
@@ -90,15 +95,11 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
     val speakerOffLabel = stringResource(R.string.call_speaker_off)
     val muteOnLabel = stringResource(R.string.call_mute_on)
     val muteOffLabel = stringResource(R.string.call_mute_off)
-    // Announcement text rendered into a hidden assertive live region so TalkBack
-    // speaks it as soon as the user crosses a swipe threshold. We suffix a counter
-    // to force a content change even when the user re-toggles to the same string,
-    // otherwise TalkBack would suppress the repeat as a no-op.
-    var announcement by remember { mutableStateOf("") }
-    var announcementSeq by remember { mutableStateOf(0) }
+    // Speak swipe-toggle feedback to TalkBack directly via the platform view, so no
+    // on-screen element is needed.
+    val rootView = LocalView.current
     fun announce(text: String) {
-        announcementSeq += 1
-        announcement = text
+        rootView.announceForAccessibility(text)
     }
     // Swipe up = toggle speakerphone, swipe down = toggle mute. Each swipe past the
     // threshold flips the state once and resets the accumulator, so a single long drag
@@ -207,6 +208,14 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                     style = MaterialTheme.typography.displayLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
+                active?.accountLabel?.takeIf { it.isNotBlank() }?.let { acct ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.call_via_account, acct),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (durationText.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -216,21 +225,6 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
-                // Hidden assertive live region: TalkBack reads this immediately when
-                // the swipe toggles speaker/mute. We tie the key to a sequence number so
-                // re-announcing the same string after a back-and-forth toggle still
-                // produces a fresh content change.
-                Text(
-                    text = announcement,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Transparent,
-                    modifier = Modifier
-                        .size(1.dp)
-                        .semantics {
-                            liveRegion = LiveRegionMode.Assertive
-                            contentDescription = "$announcement\u200B${announcementSeq}"
-                        },
-                )
             }
 
             // Mid-call controls visible only when call is connected.
@@ -280,6 +274,11 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                             onAddCall()
                         },
                     )
+                    ActionControl(
+                        label = stringResource(R.string.call_keypad),
+                        icon = Icons.Filled.Dialpad,
+                        onClick = { showKeypad = true },
+                    )
                 }
             } else {
                 Spacer(Modifier.height(0.dp))
@@ -319,6 +318,10 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                 }
             }
         }
+    }
+
+    if (showKeypad) {
+        InCallKeypad(onClose = { showKeypad = false })
     }
 }
 
@@ -443,6 +446,94 @@ private fun ActionControl(
             text = label,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.clearAndSetSemantics {},
+        )
+    }
+}
+
+/**
+ * Full-screen DTMF keypad shown over the in-call screen. Each digit sends a DTMF tone
+ * to the carrier via [OngoingCallHolder.playDtmf]; the tone is stopped on release so
+ * the IVR sees a tap rather than a held key.
+ */
+@Composable
+private fun InCallKeypad(onClose: () -> Unit) {
+    val closeLabel = stringResource(R.string.call_keypad_close)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.call_keypad),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onClose, modifier = Modifier.semantics {
+                    contentDescription = closeLabel
+                    role = Role.Button
+                }) {
+                    Icon(Icons.Filled.Close, contentDescription = null)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            val rows = listOf(
+                listOf('1', '2', '3'),
+                listOf('4', '5', '6'),
+                listOf('7', '8', '9'),
+                listOf('*', '0', '#'),
+            )
+            rows.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    row.forEach { digit ->
+                        DtmfKey(
+                            digit = digit,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DtmfKey(digit: Char, modifier: Modifier = Modifier) {
+    val label = digit.toString()
+    Box(
+        modifier = modifier
+            .height(72.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(
+                role = Role.Button,
+                onClick = {
+                    // Most carriers don't care about the gap between play and stop; we
+                    // fire them back-to-back since a Compose click is already a tap.
+                    OngoingCallHolder.playDtmf(digit)
+                    OngoingCallHolder.stopDtmf()
+                },
+            )
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.clearAndSetSemantics {},
         )
     }

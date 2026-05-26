@@ -416,6 +416,10 @@ private fun RecentRow(
     val deleteAllLabel = stringResource(R.string.action_delete_recent_all)
     val showContactLabel = stringResource(R.string.action_show_contact_info)
     val deleteContactLabel = stringResource(R.string.action_delete_contact)
+    val blockLabel = stringResource(R.string.action_block_number)
+    val unblockLabel = stringResource(R.string.action_unblock_number)
+    val isBlocked = com.accessible.dialer.blocking.BlockedNumbersRepository
+        .isBlocked(context, entry.number)
 
     val selectLabel = stringResource(R.string.selection_long_press_hint)
     // In selection mode the whole row is the checkbox (Role.Checkbox + toggleable),
@@ -469,6 +473,21 @@ private fun RecentRow(
                         add(CustomAccessibilityAction(deleteContactLabel) {
                             onDeleteContact(cid, displayName); true
                         })
+                    }
+                    if (entry.number.isNotBlank()) {
+                        if (isBlocked) {
+                            add(CustomAccessibilityAction(unblockLabel) {
+                                com.accessible.dialer.util.ContactOps.unblockNumber(
+                                    context, entry.number
+                                ); true
+                            })
+                        } else {
+                            add(CustomAccessibilityAction(blockLabel) {
+                                com.accessible.dialer.util.ContactOps.blockNumber(
+                                    context, entry.number
+                                ); true
+                            })
+                        }
                     }
                     add(CustomAccessibilityAction(deleteLabel) { onDelete(); true })
                     add(CustomAccessibilityAction(deleteAllLabel) { onDeleteEntire(); true })

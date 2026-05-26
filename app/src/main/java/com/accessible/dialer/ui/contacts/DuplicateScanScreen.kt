@@ -78,6 +78,12 @@ internal fun DuplicateScanScreen(onBack: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var groups by remember { mutableStateOf<List<DuplicateGroup>>(emptyList()) }
     var reloadKey by remember { mutableStateOf(0) }
+    // When true the next scan also runs fuzzy name matching (transposed tokens,
+    // diacritic-insensitive equality, edit-distance â‰¤ 2) on top of the strict
+    // exact-match scan. Default off so the cheap exact-match scan still loads
+    // instantly; the user opts into the heavier O(NÂ²) sweep via the "Smart scan"
+    // toolbar button.
+    var smartMode by remember { mutableStateOf(false) }
     var confirmGroup by remember { mutableStateOf<DuplicateGroup?>(null) }
     var confirmMergeAll by remember { mutableStateOf(false) }
     var mergingAll by remember { mutableStateOf(false) }
@@ -85,7 +91,9 @@ internal fun DuplicateScanScreen(onBack: () -> Unit) {
 
     LaunchedEffect(reloadKey) {
         loading = true
-        groups = withContext(Dispatchers.IO) { scanDuplicates(context) }
+        val raw = withContext(Dispatchers.IO) { scanDuplicates(context, smart = smartMode) }
+        val dismissed = DuplicateDismissals.load(context)
+        groups = raw.filterNot { it.key in dismissed }
         loading = false
     }
 
@@ -190,8 +198,28 @@ internal fun DuplicateScanScreen(onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    TextButton(onClick = { reloadKey += 1 }) {
+                    TextButton(onClick = {
+                        smartMode = true
+                        reloadKey += 1
+                    }) {
+                        Text(stringResource(R.string.duplicates_smart_scan))
+                    }
+                    TextButton(onClick = {
+                        smartMode = false
+                        reloadKey += 1
+                    }) {
                         Text(stringResource(R.string.duplicates_rescan))
+                    }
+                    TextButton(onClick = {
+                        DuplicateDismissals.clear(context)
+                        Toast.makeText(
+                            context,
+                            R.string.duplicates_restored,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        reloadKey += 1
+                    }) {
+                        Text(stringResource(R.string.duplicates_restore_dismissed))
                     }
                 },
             )
@@ -251,7 +279,19 @@ internal fun DuplicateScanScreen(onBack: () -> Unit) {
                             HorizontalDivider()
                         }
                         items(groups, key = { it.key }) { g ->
-                            DuplicateGroupRow(group = g, onMerge = { confirmGroup = g })
+                            DuplicateGroupRow(
+                                group = g,
+                                onMerge = { confirmGroup = g },
+                                onDismiss = {
+                                    DuplicateDismissals.dismiss(context, g.key)
+                                    groups = groups.filterNot { it.key == g.key }
+                                    Toast.makeText(
+                                        context,
+                                        R.string.duplicates_dismissed,
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                },
+                            )
                             HorizontalDivider()
                         }
                     }
@@ -262,7 +302,11 @@ internal fun DuplicateScanScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun DuplicateGroupRow(group: DuplicateGroup, onMerge: () -> Unit) {
+private fun DuplicateGroupRow(
+    group: DuplicateGroup,
+    onMerge: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -271,7 +315,7 @@ private fun DuplicateGroupRow(group: DuplicateGroup, onMerge: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
-            text = group.displayNames.joinToString(" · "),
+            text = group.displayNames.joinToString(" Â· "),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -280,11 +324,17 @@ private fun DuplicateGroupRow(group: DuplicateGroup, onMerge: () -> Unit) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Button(onClick = onMerge) {
                 Icon(Icons.Filled.MergeType, contentDescription = null)
                 Spacer(Modifier.size(6.dp))
                 Text(stringResource(R.string.duplicates_merge))
+            }
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.duplicates_not_duplicate))
             }
         }
     }
@@ -303,7 +353,7 @@ private data class ScanRow(
     val phoneRows: List<Pair<Long, String>>,
 )
 
-private fun scanDuplicates(context: Context): List<DuplicateGroup> {
+private fun scanDuplicates(context: Context, smart: Boolean = false): List<DuplicateGroup> {
     val cr = context.contentResolver
     val rowsById = mutableMapOf<Long, ScanRow>()
 
@@ -433,9 +483,103 @@ private fun scanDuplicates(context: Context): List<DuplicateGroup> {
             )
         }
     }
+    // Fuzzy name matching (opt-in via the "Smart scan" toolbar button). Catches
+    // common ways the same person ends up stored twice with slightly different
+    // names: diacritics, reordered tokens (Smith John vs John Smith), token-
+    // subset matches (John A Smith vs John Smith), and single-character typos
+    // via Damerau-Levenshtein distance up to 2 on the diacritic-stripped form.
+    if (smart) {
+        data class FuzzyRow(val id: Long, val tokens: List<String>, val flat: String)
+        val fuzzy = rows.mapNotNull { r ->
+            val tokens = normalizeForFuzzy(r.displayName)
+            if (tokens.isEmpty()) null
+            else FuzzyRow(r.contactId, tokens.sorted(), tokens.joinToString(""))
+        }
+        val byTokens = mutableMapOf<List<String>, MutableSet<Long>>()
+        fuzzy.forEach { byTokens.getOrPut(it.tokens) { mutableSetOf() }.add(it.id) }
+        byTokens.forEach { (toks, ids) ->
+            addGroup(
+                ids,
+                "fuzzy-tokens:" + toks.joinToString("|"),
+                "Likely the same name: \"" + toks.joinToString(" ") + "\"",
+            )
+        }
+        val byFirst = fuzzy.groupBy { it.flat.firstOrNull() ?: ' ' }
+        byFirst.values.forEach { bucket ->
+            for (i in bucket.indices) {
+                val a = bucket[i]
+                for (j in (i + 1) until bucket.size) {
+                    val b = bucket[j]
+                    val matched = when {
+                        a.tokens == b.tokens -> false
+                        a.tokens.size >= 2 && b.tokens.size >= 2 &&
+                            (a.tokens.toSet().containsAll(b.tokens) ||
+                                b.tokens.toSet().containsAll(a.tokens)) -> true
+                        kotlin.math.abs(a.flat.length - b.flat.length) <= 2 &&
+                            a.flat.length >= 4 &&
+                            damerauLevenshtein(a.flat, b.flat, maxDistance = 2) <= 2 -> true
+                        else -> false
+                    }
+                    if (matched) {
+                        val names = listOf(
+                            rowsById[a.id]?.displayName.orEmpty(),
+                            rowsById[b.id]?.displayName.orEmpty(),
+                        ).filter { it.isNotBlank() }
+                        addGroup(
+                            setOf(a.id, b.id),
+                            "fuzzy-pair:" + a.id + "-" + b.id,
+                            "Similar names: " + names.joinToString(" / "),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     return groups.sortedByDescending { it.contactIds.size }
 }
 
+private fun normalizeForFuzzy(name: String): List<String> {
+    val nfd = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
+    val stripped = buildString {
+        for (ch in nfd) {
+            if (Character.getType(ch).toByte() != Character.NON_SPACING_MARK) append(ch)
+        }
+    }.lowercase()
+    return stripped.split(Regex("[^\\p{L}]+")).filter { it.isNotEmpty() }
+}
+
+private fun damerauLevenshtein(a: String, b: String, maxDistance: Int): Int {
+    val la = a.length
+    val lb = b.length
+    if (kotlin.math.abs(la - lb) > maxDistance) return maxDistance + 1
+    var prevPrev = IntArray(lb + 1)
+    var prev = IntArray(lb + 1) { it }
+    var curr = IntArray(lb + 1)
+    for (i in 1..la) {
+        curr[0] = i
+        var rowMin = curr[0]
+        for (j in 1..lb) {
+            val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+            var v = minOf(
+                curr[j - 1] + 1,
+                prev[j] + 1,
+                prev[j - 1] + cost,
+            )
+            if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) {
+                v = minOf(v, prevPrev[j - 2] + 1)
+            }
+            curr[j] = v
+            if (v < rowMin) rowMin = v
+        }
+        if (rowMin > maxDistance) return maxDistance + 1
+        val tmp = prevPrev
+        prevPrev = prev
+        prev = curr
+        curr = tmp
+    }
+    return prev[lb]
+}
 /* ---------------- Intra-contact dedupe ---------------- */
 
 private fun deleteDataRows(context: Context, rowIds: List<Long>): Boolean {
@@ -455,7 +599,7 @@ private fun deleteDataRows(context: Context, rowIds: List<Long>): Boolean {
 
 /* ---------------- Merging ---------------- */
 
-private fun mergeContacts(context: Context, contactIds: List<Long>): Boolean {
+internal fun mergeContacts(context: Context, contactIds: List<Long>): Boolean {
     if (contactIds.size < 2) return false
     val cr = context.contentResolver
     // Resolve one raw contact id per aggregated contact id. We need at least one raw

@@ -84,10 +84,14 @@ object OngoingCallHolder {
         // connectTimeMillis is 0 until the call actually connects; expose as null in
         // that case so the UI can keep showing "Ringing / Dialing" instead of 0:00.
         val connect = details?.connectTimeMillis?.takeIf { it > 0 }
+        val accountLabel = inCallService?.let { svc ->
+            com.accessible.dialer.util.PhoneAccounts.labelFor(svc, details?.accountHandle)
+        }
         _state.value = CallState.Active(
             number = handle,
             telecomState = call.state,
             connectTimeMillis = connect,
+            accountLabel = accountLabel,
         )
     }
 }
@@ -98,6 +102,7 @@ sealed interface CallState {
         val number: String?,
         val telecomState: Int,
         val connectTimeMillis: Long? = null,
+        val accountLabel: String? = null,
     ) : CallState
 }
 

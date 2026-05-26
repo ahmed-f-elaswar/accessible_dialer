@@ -15,6 +15,12 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
+    <!-- Reading and writing system blocked numbers requires either being the default
+         dialer / SMS app (which we are) or these privileged permissions. Declaring
+         them lets old API levels work even if the app loses its default-dialer role. -->
+    <uses-permission android:name="android.permission.READ_BLOCKED_NUMBERS" />
+    <uses-permission android:name="android.permission.WRITE_BLOCKED_NUMBERS" />
+
     <application
         android:name=".DialerApplication"
         android:allowBackup="true"
@@ -88,6 +94,19 @@
                 android:value="true" />
             <intent-filter>
                 <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
+        <!-- CallScreeningService: auto-rejects incoming calls whose number is on the
+             system block list. Only one screening service runs at a time and the
+             default dialer wins, so this is invoked for every incoming call while
+             this app is the default dialer. -->
+        <service
+            android:name=".blocking.BlockingCallScreeningService"
+            android:exported="true"
+            android:permission="android.permission.BIND_SCREENING_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService" />
             </intent-filter>
         </service>
     </application>

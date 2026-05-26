@@ -79,8 +79,23 @@ fun DialerApp(
     onRequestDefaultDialer: () -> Unit,
     onPlaceCall: (String) -> Unit,
 ) {
+    // Initial tab priority:
+    //   1. explicit intent override (startOnContacts) — viewing contacts from outside,
+    //   2. tel: dial intent — always land on Dialpad with the number prefilled,
+    //   3. last tab the user was on (persisted across cold-starts),
+    //   4. Dialpad as a safe default for a dialer.
     var currentTab by rememberSaveable {
-        mutableStateOf(if (startOnContacts) Tab.Contacts else Tab.Dialpad)
+        val initial = when {
+            startOnContacts -> Tab.Contacts
+            !initialNumber.isNullOrEmpty() -> Tab.Dialpad
+            else -> com.accessible.dialer.settings.SettingsRepository.lastTab.value
+                ?.let { name -> Tab.values().firstOrNull { it.name == name } }
+                ?: Tab.Dialpad
+        }
+        mutableStateOf(initial)
+    }
+    androidx.compose.runtime.LaunchedEffect(currentTab) {
+        com.accessible.dialer.settings.SettingsRepository.setLastTab(currentTab.name)
     }
     var dialpadNumber by rememberSaveable { mutableStateOf(initialNumber.orEmpty()) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -93,8 +108,8 @@ fun DialerApp(
     var editorContactId by rememberSaveable { mutableStateOf<Long?>(null) }
     // Full-screen duplicate-detection wizard opened from Settings → Tools.
     var showDuplicates by rememberSaveable { mutableStateOf(false) }
-    var showStorage by rememberSaveable { mutableStateOf(false) }
     var showNameFix by rememberSaveable { mutableStateOf(false) }
+    var showBlocked by rememberSaveable { mutableStateOf(false) }
     // Bumped on save to force ContactsScreen to reload.
     var contactsReloadKey by rememberSaveable { mutableStateOf(0) }
 
@@ -157,14 +172,6 @@ fun DialerApp(
         return
     }
 
-    if (showStorage) {
-        androidx.activity.compose.BackHandler { showStorage = false }
-        com.accessible.dialer.ui.contacts.StorageLocationsScreen(
-            onBack = { showStorage = false },
-        )
-        return
-    }
-
     if (showNameFix) {
         androidx.activity.compose.BackHandler { showNameFix = false }
         com.accessible.dialer.ui.contacts.NameFixScreen(
@@ -172,6 +179,14 @@ fun DialerApp(
                 showNameFix = false
                 contactsReloadKey += 1
             },
+        )
+        return
+    }
+
+    if (showBlocked) {
+        androidx.activity.compose.BackHandler { showBlocked = false }
+        com.accessible.dialer.ui.blocking.BlockedNumbersScreen(
+            onBack = { showBlocked = false },
         )
         return
     }
@@ -291,8 +306,8 @@ fun DialerApp(
                 if (showSettings) {
                     SettingsScreen(
                         onOpenDuplicates = { showDuplicates = true },
-                        onOpenStorage = { showStorage = true },
                         onOpenNameFix = { showNameFix = true },
+                        onOpenBlocked = { showBlocked = true },
                     )
                 } else when (currentTab) {
                     Tab.Dialpad -> DialpadScreen(

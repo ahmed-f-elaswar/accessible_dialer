@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.ContactsContract
 import android.widget.Toast
 import com.accessible.dialer.R
+import com.accessible.dialer.blocking.BlockedNumbersRepository
 
 /**
  * Centralized contact manipulation. Where possible we delegate to the system Contacts app
@@ -162,18 +163,50 @@ object ContactOps {
         runCatching { context.startActivity(chooser) }
     }
 
-    /** Opens the system Blocked Numbers screen so the user can block [number]. */
+    /**
+     * Blocks [number] via [BlockedNumbersRepository] (which talks to the system
+     * `BlockedNumberContract` provider). Shows a toast confirming the outcome.
+     * Falls back to launching the system blocked-numbers UI if the direct insert
+     * fails (e.g. the app has lost its default-dialer role).
+     */
     fun blockNumber(context: Context, number: String) {
         if (number.isBlank()) return
-        // The cleanest, permission-free path is to launch the system blocked-numbers UI
-        // and let the user confirm. Adding silently requires being the default dialer AND
-        // calling BlockedNumberContract directly; we offer the UI route here.
-        val intent = Intent("android.telecom.action.SHOW_BLOCKED_NUMBERS").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val added = runCatching {
+            BlockedNumbersRepository.block(context, number)
+        }.getOrNull()
+        when (added) {
+            true -> Toast.makeText(
+                context,
+                R.string.blocked_numbers_blocked_short,
+                Toast.LENGTH_SHORT,
+            ).show()
+            false -> Toast.makeText(
+                context,
+                R.string.blocked_numbers_already_blocked_short,
+                Toast.LENGTH_SHORT,
+            ).show()
+            null -> {
+                // Provider was unavailable — open the system UI as a fallback.
+                val intent = Intent("android.telecom.action.SHOW_BLOCKED_NUMBERS").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                runCatching { context.startActivity(intent) }.onFailure {
+                    Toast.makeText(context, R.string.action_block_unavailable, Toast.LENGTH_SHORT).show()
+                }
+            }
         }
-        runCatching { context.startActivity(intent) }.onFailure {
-            Toast.makeText(context, R.string.action_block_unavailable, Toast.LENGTH_SHORT).show()
-        }
+    }
+
+    /** Removes [number] from the system block list. */
+    fun unblockNumber(context: Context, number: String) {
+        if (number.isBlank()) return
+        BlockedNumbersRepository.refresh(context)
+        BlockedNumbersRepository.unblockByNumber(context, number)
+        Toast.makeText(
+            context,
+            R.string.blocked_numbers_unblocked_short,
+            Toast.LENGTH_SHORT,
+        ).show()
     }
 
     /** Opens the contact editor so the user can pick a custom ringtone. */

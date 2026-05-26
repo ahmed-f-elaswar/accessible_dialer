@@ -28,12 +28,24 @@ object SettingsRepository {
     private const val KEY_PHONE_ACCOUNT_PKG = "default_phone_account_pkg"
     private const val KEY_PHONE_ACCOUNT_CLS = "default_phone_account_cls"
     private const val KEY_CONTACT_ACCOUNT_FILTER = "contact_account_filter"
+    private const val KEY_BLOCK_MODE = "block_mode"
+    private const val KEY_LAST_TAB = "last_tab"
 
     enum class ThemeMode { System, Light, Dark }
     enum class TextScale(val factor: Float) {
         Small(0.9f), Default(1.0f), Large(1.2f), ExtraLarge(1.45f);
     }
     enum class SortOrder { FirstName, LastName }
+
+    /**
+     * How blocked calls are handled on the caller's side.
+     *  - [Reject]: call ends immediately; caller hears a short tone / busy and is
+     *    typically routed to voicemail by the carrier.
+     *  - [SilentRing]: the call rings normally on the caller's end (so they don't
+     *    realize they're blocked) and your phone stays silent. After their ring
+     *    timeout it goes to voicemail.
+     */
+    enum class BlockMode { Reject, SilentRing }
 
     data class PhoneAccountRef(
         val componentPackage: String,
@@ -69,6 +81,14 @@ object SettingsRepository {
     private val _accountFilter = MutableStateFlow<Set<String>>(emptySet())
     val accountFilter: StateFlow<Set<String>> get() = _accountFilter.asStateFlow()
 
+    private val _blockMode = MutableStateFlow(BlockMode.Reject)
+    val blockMode: StateFlow<BlockMode> get() = _blockMode.asStateFlow()
+
+    // Name of the last-opened bottom-nav tab (e.g. "Dialpad", "Contacts"). Plain string
+    // so the UI layer can map it to its private Tab enum without leaking the enum here.
+    private val _lastTab = MutableStateFlow<String?>(null)
+    val lastTab: StateFlow<String?> get() = _lastTab.asStateFlow()
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -83,6 +103,8 @@ object SettingsRepository {
         val id = prefs.getString(KEY_PHONE_ACCOUNT, null)
         _phoneAccount.value = if (pkg != null && cls != null && id != null) PhoneAccountRef(pkg, cls, id) else null
         _accountFilter.value = prefs.getStringSet(KEY_CONTACT_ACCOUNT_FILTER, emptySet())?.toSet() ?: emptySet()
+        _blockMode.value = BlockMode.valueOf(prefs.getString(KEY_BLOCK_MODE, BlockMode.Reject.name) ?: BlockMode.Reject.name)
+        _lastTab.value = prefs.getString(KEY_LAST_TAB, null)
     }
 
     fun setTheme(mode: ThemeMode) { _theme.value = mode; prefs.edit { putString(KEY_THEME, mode.name) } }
@@ -107,5 +129,15 @@ object SettingsRepository {
     fun setAccountFilter(keys: Set<String>) {
         _accountFilter.value = keys
         prefs.edit { putStringSet(KEY_CONTACT_ACCOUNT_FILTER, keys) }
+    }
+
+    fun setBlockMode(mode: BlockMode) {
+        _blockMode.value = mode
+        prefs.edit { putString(KEY_BLOCK_MODE, mode.name) }
+    }
+
+    fun setLastTab(name: String) {
+        _lastTab.value = name
+        prefs.edit { putString(KEY_LAST_TAB, name) }
     }
 }

@@ -51,8 +51,8 @@ import com.accessible.dialer.util.PhoneAccounts
 @Composable
 fun SettingsScreen(
     onOpenDuplicates: () -> Unit = {},
-    onOpenStorage: () -> Unit = {},
     onOpenNameFix: () -> Unit = {},
+    onOpenBlocked: () -> Unit = {},
 ) {
     val context = LocalContext.current
 
@@ -178,9 +178,9 @@ fun SettingsScreen(
         }
         item {
             NavRow(
-                title = stringResource(R.string.settings_storage_locations),
-                subtitle = stringResource(R.string.settings_storage_locations_sub),
-                onClick = onOpenStorage,
+                title = stringResource(R.string.settings_blocked_numbers),
+                subtitle = stringResource(R.string.settings_blocked_numbers_sub),
+                onClick = onOpenBlocked,
             )
         }
 

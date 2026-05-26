@@ -53,6 +53,7 @@
     <string name="call_resume">Resume</string>
     <string name="call_unknown">Unknown number</string>
     <string name="call_duration">Duration %1$s</string>
+    <string name="call_via_account">Via %1$s</string>
     <string name="call_speaker_on">Speaker on</string>
     <string name="call_speaker_off">Speaker off</string>
     <string name="call_mute_on">Microphone muted</string>
@@ -95,6 +96,7 @@
     <string name="contacts_section_expand">Expand</string>
     <string name="contacts_section_collapse">Collapse</string>
     <string name="call_add">Add call</string>
+    <string name="call_keypad_close">Close keypad</string>
     <string name="favorites_empty">No favorite contacts</string>
 
     <!-- Settings tab -->
@@ -187,6 +189,15 @@
     <string name="contact_details_section_events">Important dates</string>
     <string name="contact_details_section_notes">Notes</string>
     <string name="contact_details_section_recent_calls">Recent calls</string>
+    <string name="contact_details_section_history">History</string>
+    <string name="contact_details_history_empty">No calls with this contact yet.</string>
+    <string name="action_merge_contact">Merge with another contact</string>
+    <string name="merge_picker_title">Pick a contact to merge</string>
+    <string name="merge_pick_contact">Merge with %1$s</string>
+    <string name="merge_contact_title">Merge contacts?</string>
+    <string name="merge_contact_message">Combine %1$s and %2$s into one contact?</string>
+    <string name="merge_contact_confirm">Merge</string>
+    <string name="contact_details_section_storage">Stored in</string>
     <string name="contact_details_section_actions">Actions</string>
     <string name="contact_details_organization">Organization</string>
     <string name="contact_details_nickname">Nickname</string>
@@ -195,6 +206,8 @@
     <string name="action_open_map">Open in maps</string>
     <string name="action_open_website">Open website</string>
     <string name="action_pin_home">Pin to home screen</string>
+    <string name="action_more_expand">More actions</string>
+    <string name="action_more_collapse">Fewer actions</string>
     <string name="event_birthday">Birthday</string>
     <string name="event_anniversary">Anniversary</string>
     <string name="event_other">Other date</string>
@@ -254,6 +267,25 @@
     <string name="settings_find_duplicates_sub">Scan for contacts with the same name, phone, or email and merge them</string>
     <string name="settings_storage_locations">Where contacts are stored</string>
     <string name="settings_storage_locations_sub">List the accounts that own your contacts and how many each holds</string>
+    <string name="settings_blocked_numbers">Blocked numbers</string>
+    <string name="settings_blocked_numbers_sub">Calls from these numbers are silently rejected</string>
+    <string name="blocked_numbers_title">Blocked numbers</string>
+    <string name="blocked_numbers_empty">No blocked numbers yet. Add one with the button below, or long-press an entry in Recents.</string>
+    <string name="blocked_numbers_add">Add number</string>
+    <string name="blocked_numbers_hint">Phone number</string>
+    <string name="blocked_numbers_unblock">Unblock</string>
+    <string name="blocked_numbers_blocked">%1$s blocked</string>
+    <string name="blocked_numbers_already_blocked">%1$s is already blocked</string>
+    <string name="blocked_numbers_unblocked">%1$s unblocked</string>
+    <string name="blocked_numbers_blocked_short">Blocked</string>
+    <string name="blocked_numbers_already_blocked_short">Already blocked</string>
+    <string name="blocked_numbers_unblocked_short">Unblocked</string>
+    <string name="action_unblock_number">Unblock number</string>
+    <string name="block_mode_header">When a blocked number calls</string>
+    <string name="block_mode_reject">Reject the call</string>
+    <string name="block_mode_reject_sub">Call ends right away. Caller usually hears a short tone or is sent to voicemail.</string>
+    <string name="block_mode_silent">Silent ring</string>
+    <string name="block_mode_silent_sub">Caller hears normal ringing and reaches your voicemail. Your phone stays silent — they don\'t know they\'re blocked.</string>
     <string name="storage_title">Storage locations</string>
     <string name="storage_subtitle">Each entry is an account on this device that owns one or more contacts.</string>
     <string name="storage_total">Total contacts: %1$d</string>
@@ -265,6 +297,11 @@
     <string name="duplicates_none_found">No duplicates found</string>
     <string name="duplicates_none_found_sub">Your contacts look clean. Try again if you\'ve just added or imported new contacts.</string>
     <string name="duplicates_rescan">Rescan</string>
+    <string name="duplicates_smart_scan">Smart scan</string>
+    <string name="duplicates_not_duplicate">Not a duplicate</string>
+    <string name="duplicates_dismissed">Suggestion hidden</string>
+    <string name="duplicates_restore_dismissed">Restore dismissed</string>
+    <string name="duplicates_restored">Dismissed suggestions restored</string>
     <string name="duplicates_merge">Merge</string>
     <string name="duplicates_merge_confirm_title">Merge contacts?</string>
     <string name="duplicates_merge_confirm_message">Merge these contacts into one entry?\n\n%1$s</string>
