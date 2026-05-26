@@ -1,0 +1,92 @@
+<resources>
+    <string name="app_name">Accessible Dialer</string>
+
+    <!-- Navigation tabs -->
+    <string name="tab_dialpad">Keypad</string>
+    <string name="tab_recents">Recent calls</string>
+    <string name="tab_contacts">Contacts</string>
+    <string name="tab_favorites">Favorites</string>
+
+    <!-- Dialpad -->
+    <string name="dialpad_enter_number">Enter phone number</string>
+    <string name="dialpad_call">Place call</string>
+    <string name="dialpad_backspace">Delete last digit</string>
+    <string name="dialpad_clear_all">Clear all digits</string>
+    <string name="key_0_plus_action">Insert plus</string>
+    <string name="dialpad_long_press_zero">Long press for plus sign</string>
+    <string name="key_1_desc">1</string>
+    <string name="key_2_desc">2</string>
+    <string name="key_3_desc">3</string>
+    <string name="key_4_desc">4</string>
+    <string name="key_5_desc">5</string>
+    <string name="key_6_desc">6</string>
+    <string name="key_7_desc">7</string>
+    <string name="key_8_desc">8</string>
+    <string name="key_9_desc">9</string>
+    <string name="key_star_desc">Star</string>
+    <string name="key_0_desc">0</string>
+    <string name="key_pound_desc">Pound</string>
+
+    <!-- Permissions -->
+    <string name="perm_required_title">Permissions needed</string>
+    <string name="perm_required_message">This app needs phone, contacts and call log access to work as your dialer.</string>
+    <string name="perm_grant">Grant permissions</string>
+    <string name="perm_open_settings">Open settings</string>
+
+    <!-- Default dialer -->
+    <string name="default_dialer_banner">Set Accessible Dialer as your default phone app to place and receive calls.</string>
+    <string name="default_dialer_action">Set as default</string>
+
+    <!-- In-call screen -->
+    <string name="call_incoming">Incoming call</string>
+    <string name="call_outgoing">Calling…</string>
+    <string name="call_active">On call</string>
+    <string name="call_ended">Call ended</string>
+    <string name="call_answer">Answer</string>
+    <string name="call_decline">Decline</string>
+    <string name="call_hangup">End call</string>
+    <string name="call_mute">Mute</string>
+    <string name="call_unmute">Unmute</string>
+    <string name="call_speaker">Speaker</string>
+    <string name="call_keypad">Keypad</string>
+    <string name="call_hold">Hold</string>
+    <string name="call_resume">Resume</string>
+    <string name="call_unknown">Unknown number</string>
+
+    <!-- Recents -->
+    <string name="recents_empty">No recent calls</string>
+    <string name="recents_incoming">Incoming</string>
+    <string name="recents_outgoing">Outgoing</string>
+    <string name="recents_missed">Missed</string>
+    <string name="recents_rejected">Rejected</string>
+    <string name="recents_call_back">Call %1$s</string>
+    <string name="recents_show_in_keypad">Show %1$s in keypad</string>
+    <string name="recents_call_generic">Call</string>
+    <string name="recents_row">%2$s, %1$s, %3$s</string>
+    <string name="recents_section_today">Today</string>
+    <string name="recents_section_yesterday">Yesterday</string>
+    <string name="recents_section_this_week">This week</string>
+    <string name="recents_section_earlier">Earlier</string>
+    <string name="recents_section_summary">%1$s, %2$d calls</string>
+    <string name="recents_section_count">%1$d calls</string>
+
+    <!-- Contacts -->
+    <string name="contacts_empty">No contacts found</string>
+    <string name="contacts_search">Search contacts</string>
+    <string name="contacts_call">Call %1$s</string>
+    <string name="contacts_show_in_keypad">Show %1$s in keypad</string>
+    <string name="contacts_load_in_dialpad">Show %1$s in dialpad</string>
+    <string name="contacts_open_details">Open contact details for %1$s</string>
+    <string name="action_send_message">Send message</string>
+    <string name="action_copy_number">Copy number</string>
+    <string name="number_copied">Number copied</string>
+    <string name="contacts_favorite_indicator">Favorite</string>
+    <string name="contacts_row">%1$s</string>
+    <string name="contacts_row_favorite">Favorite, %1$s</string>
+    <string name="contacts_section_summary">%1$s, %2$d contacts</string>
+    <string name="contacts_section_count">%1$d contacts</string>
+    <string name="contacts_section_expand">Expand</string>
+    <string name="contacts_section_collapse">Collapse</string>
+    <string name="call_add">Add call</string>
+    <string name="favorites_empty">No favorite contacts</string>
+</resources>
