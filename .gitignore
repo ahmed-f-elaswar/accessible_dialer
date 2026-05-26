@@ -1,6 +1,7 @@
 # Gradle
 .gradle/
 build/
+**/build/
 local.properties
 
 # IDE
@@ -12,7 +13,20 @@ local.properties
 captures/
 *.apk
 *.aab
+*.ap_
+*.dex
 *.keystore
+*.jks
+release/
+out/
+bin/
+gen/
+
+# Logs / build outputs
+*.log
+logs/
+build-install.log
+hs_err_pid*.log
 
 # OS
 .DS_Store
