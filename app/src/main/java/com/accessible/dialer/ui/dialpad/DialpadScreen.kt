@@ -34,11 +34,14 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
@@ -49,6 +52,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -58,9 +62,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
@@ -71,7 +77,12 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.AccessibilityDelegateCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import com.accessible.dialer.R
+import com.accessible.dialer.settings.SettingsRepository
 
 /**
  * Big-key dialpad with:
@@ -89,6 +100,7 @@ fun DialpadScreen(
     permissionsGranted: Boolean,
 ) {
     val context = LocalContext.current
+    val rootView = LocalView.current
     val tone = remember { ToneGenerator(AudioManager.STREAM_DTMF, 70) }
     val vibrator = remember {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -100,10 +112,15 @@ fun DialpadScreen(
     }
     DisposableEffect(Unit) { onDispose { tone.release() } }
 
+    val hapticEnabled by SettingsRepository.haptic.collectAsState()
+    val verboseDigits by SettingsRepository.verboseDigits.collectAsState()
+
     fun feedback(toneId: Int) {
         runCatching { tone.startTone(toneId, 120) }
-        runCatching {
-            vibrator.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
+        if (hapticEnabled) {
+            runCatching {
+                vibrator.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE))
+            }
         }
     }
 
@@ -112,10 +129,28 @@ fun DialpadScreen(
         onNumberChange(number + ch)
     }
 
+    @OptIn(ExperimentalComposeUiApi::class)
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            // Cancel any pending lift-to-type click whenever a hover event lands on
+            // anywhere within the dialpad area that *isn't* a key. AndroidView keys
+            // consume their own hover events, so the only events that reach this
+            // outer filter are those from the empty Compose space between/around keys
+            // (number display, padding, spacers). Sliding off a key into one of those
+            // regions therefore cancels the scheduled click, while truly lifting off
+            // the screen leaves the scheduler alone — its 80ms timer then fires the
+            // last-touched key, matching standard soft-keyboard behavior.
+            .pointerInteropFilter { ev ->
+                when (ev.actionMasked) {
+                    MotionEvent.ACTION_HOVER_ENTER,
+                    MotionEvent.ACTION_HOVER_MOVE,
+                    MotionEvent.ACTION_DOWN,
+                    MotionEvent.ACTION_MOVE -> DialpadHoverScheduler.cancel()
+                }
+                false
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // Number display area
@@ -131,10 +166,26 @@ fun DialpadScreen(
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.semantics {
-                    contentDescription = if (number.isEmpty()) "" else "Number: ${number.toCharArray().joinToString(" ")}"
+                    contentDescription = when {
+                        number.isEmpty() -> ""
+                        // Verbose mode reads each digit individually with a leading label.
+                        // The default still reads the number digit-by-digit (separated by
+                        // spaces) so TalkBack pronounces "5 5 5" instead of "five hundred
+                        // fifty-five", but skips the "Number:" prefix for brevity.
+                        verboseDigits -> "Number: ${number.toCharArray().joinToString(" ")}"
+                        else -> number.toCharArray().joinToString(" ")
+                    }
                 }
             )
         }
+
+        // Live contact-suggestion list. Looks up contacts whose name or number matches
+        // whatever the user has typed so far, so they can tap a result to call without
+        // entering the full number. We use Phone.CONTENT_FILTER_URI, which the system
+        // contacts provider already exposes for this exact dialer-style lookup
+        // (matches digits against E.164-normalised numbers, and on most OEMs also
+        // performs T9 matching against name letters).
+        DialpadSuggestions(query = number, onPick = { picked -> onNumberChange(picked) })
 
         // 4 rows of keys
         DialRow {
@@ -181,8 +232,30 @@ fun DialpadScreen(
             CallButton(enabled = number.isNotBlank() && permissionsGranted, onClick = onCall)
             BackspaceButton(
                 enabled = number.isNotEmpty(),
-                onClick = { if (number.isNotEmpty()) onNumberChange(number.dropLast(1)) },
-                onLongClick = { onNumberChange("") },
+                onClick = {
+                    if (number.isNotEmpty()) {
+                        // Use a distinct non-DTMF tone (PROP_BEEP2 is a short two-tone
+                        // "deny/back" sound on the system tone generator) so deleting
+                        // never sounds like typing. The deleted digit is also announced
+                        // via TalkBack so screen-reader users hear *what* was removed,
+                        // not just a generic beep.
+                        val removed = number.last()
+                        feedback(ToneGenerator.TONE_PROP_BEEP2)
+                        onNumberChange(number.dropLast(1))
+                        rootView.announceForAccessibility(
+                            context.getString(R.string.dialpad_digit_deleted, removed.toString())
+                        )
+                    }
+                },
+                onLongClick = {
+                    if (number.isNotEmpty()) {
+                        feedback(ToneGenerator.TONE_PROP_BEEP2)
+                        onNumberChange("")
+                        rootView.announceForAccessibility(
+                            context.getString(R.string.dialpad_cleared)
+                        )
+                    }
+                },
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -296,25 +369,33 @@ private fun Key(
 @Composable
 private fun CallButton(enabled: Boolean, onClick: () -> Unit) {
     val label = stringResource(R.string.dialpad_call)
+    val background =
+        if (enabled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface
+    val tint = if (enabled) Color.White else MaterialTheme.colorScheme.onSurface
+    // Single clickable focusable: previously a Box (with the contentDescription) wrapped an
+    // IconButton (with the onClick), so TalkBack saw two competing semantic nodes — the
+    // outer node carried the label but no click, and the inner button had a click but no
+    // label. Collapsing them fixes "announces 'Call' but double-tap does nothing".
     Box(
         modifier = Modifier
             .size(88.dp)
             .clip(CircleShape)
-            .background(
-                if (enabled) MaterialTheme.colorScheme.secondary
-                else MaterialTheme.colorScheme.surface
+            .background(background)
+            .clickable(
+                enabled = enabled,
+                onClick = onClick,
+                onClickLabel = label,
+                role = Role.Button,
             )
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(88.dp)) {
-            Icon(
-                imageVector = Icons.Filled.Call,
-                contentDescription = null,
-                tint = if (enabled) Color.White else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(36.dp),
-            )
-        }
+        Icon(
+            imageVector = Icons.Filled.Call,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(36.dp),
+        )
     }
 }
 
@@ -496,5 +577,94 @@ private object DialpadHoverScheduler {
         // HOVER_ENTER on the next during a drag (typically <16 ms), but still fast
         // enough that lift-to-type feels instant.
         handler.postDelayed(runnable, 80L)
+    }
+}
+
+/** A single contact match returned by [Phone.CONTENT_FILTER_URI]. */
+private data class DialpadMatch(val name: String, val number: String)
+
+/**
+ * Horizontally scrollable strip of contact matches that appears between the entered-
+ * number display and the dial keys. Empty / hidden when the user has typed fewer than
+ * two characters (avoids spamming the provider on every single keystroke) or when no
+ * contact matches. Tapping a chip drops the matched number into the dialpad so the
+ * user can immediately press Call \u2014 it does *not* auto-dial, both to stay consistent
+ * with the rest of the dialpad's "type then call" model and to keep the action
+ * undoable.
+ */
+@Composable
+private fun DialpadSuggestions(query: String, onPick: (String) -> Unit) {
+    val context = LocalContext.current
+    // Resolve matches off-thread; produceState recomputes when [query] changes. Capped
+    // at 8 results to keep the query cheap and the row legible.
+    val matches by produceState(initialValue = emptyList<DialpadMatch>(), query) {
+        val q = query.trim()
+        value = if (q.length < 2) emptyList() else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val uri = android.net.Uri.withAppendedPath(
+                    android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI,
+                    android.net.Uri.encode(q),
+                )
+                val out = mutableListOf<DialpadMatch>()
+                context.contentResolver.query(
+                    uri,
+                    arrayOf(
+                        android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                        android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER,
+                    ),
+                    null, null, null,
+                )?.use { c ->
+                    while (c.moveToNext() && out.size < 8) {
+                        val name = c.getString(0)?.takeIf { it.isNotBlank() }
+                        val number = c.getString(1)?.takeIf { it.isNotBlank() } ?: continue
+                        out += DialpadMatch(name = name ?: number, number = number)
+                    }
+                }
+                out
+            }.getOrDefault(emptyList())
+        }
+    }
+    if (matches.isEmpty()) return
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 72.dp)
+            .padding(vertical = 4.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(matches, key = { it.name + "\u0000" + it.number }) { m ->
+            val pickLabel = stringResource(R.string.dialpad_suggestion_call, m.name, m.number)
+            Row(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable(
+                        onClick = { onPick(m.number) },
+                        onClickLabel = pickLabel,
+                        role = Role.Button,
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = pickLabel
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = m.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = m.number,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
     }
 }

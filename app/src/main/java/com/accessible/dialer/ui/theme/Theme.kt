@@ -5,7 +5,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import com.accessible.dialer.settings.SettingsRepository
+import com.accessible.dialer.settings.SettingsRepository.ThemeMode
 
 // High contrast palette chosen for readability and WCAG AA contrast on the primary surfaces.
 private val LightColors = lightColorScheme(
@@ -36,13 +41,26 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun AccessibleDialerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.System,
+    textScale: SettingsRepository.TextScale = SettingsRepository.TextScale.Default,
     content: @Composable () -> Unit
 ) {
+    val darkTheme = when (themeMode) {
+        ThemeMode.System -> isSystemInDarkTheme()
+        ThemeMode.Light -> false
+        ThemeMode.Dark -> true
+    }
     val colors = if (darkTheme) DarkColors else LightColors
-    MaterialTheme(
-        colorScheme = colors,
-        typography = AppTypography,
-        content = content
-    )
+
+    // Override the density's fontScale so every sp-sized Text inside the theme honors
+    // the user-picked accessibility scale on top of the OS scale.
+    val base = LocalDensity.current
+    val scaled = Density(density = base.density, fontScale = base.fontScale * textScale.factor)
+    CompositionLocalProvider(LocalDensity provides scaled) {
+        MaterialTheme(
+            colorScheme = colors,
+            typography = AppTypography,
+            content = content,
+        )
+    }
 }

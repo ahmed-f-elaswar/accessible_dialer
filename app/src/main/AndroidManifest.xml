@@ -53,6 +53,15 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="tel" />
             </intent-filter>
+            <!-- Register this app as a Contacts entry on the launcher / app picker, so the
+                 user can open it from "Contacts" the same way they open it from "Phone".
+                 Tapping that entry simply launches MainActivity; MainActivity inspects the
+                 CATEGORY_APP_CONTACTS category and lands the user on the Contacts tab. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.APP_CONTACTS" />
+            </intent-filter>
         </activity>
 
         <!-- In-call full screen UI launched by the InCallService -->

@@ -38,4 +38,39 @@ object RowActions {
         }
         runCatching { context.startActivity(intent) }
     }
+
+    /**
+     * Resolve the aggregated Contacts row id for [number], or `null` if no contact
+     * matches. Uses [ContactsContract.PhoneLookup] which is the cheap, E.164-tolerant
+     * index designed exactly for this "given a dialed/received number, find the contact"
+     * use case. Must be called off the main thread.
+     */
+    fun lookupContactId(context: Context, number: String): Long? {
+        if (number.isBlank()) return null
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(number),
+        )
+        return runCatching {
+            context.contentResolver.query(
+                uri,
+                arrayOf(ContactsContract.PhoneLookup._ID),
+                null, null, null,
+            )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+        }.getOrNull()
+    }
+
+    /**
+     * Delete the aggregated contact identified by [contactId]. This removes every
+     * RawContact under that aggregate (Contacts.CONTENT_URI honors the delete cascade
+     * via the contacts provider) so the person disappears from every list. Returns
+     * whether at least one row was deleted; callers should refresh their UI on true.
+     */
+    fun deleteContact(context: Context, contactId: Long): Boolean {
+        if (contactId <= 0L) return false
+        val uri = ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId)
+        return runCatching {
+            context.contentResolver.delete(uri, null, null) > 0
+        }.getOrDefault(false)
+    }
 }

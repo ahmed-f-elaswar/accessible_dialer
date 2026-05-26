@@ -1,6 +1,8 @@
 package com.accessible.dialer.call
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,15 +31,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -48,8 +54,14 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import android.media.AudioManager
+import android.net.Uri
+import android.provider.ContactsContract
 import android.telecom.Call
 import com.accessible.dialer.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import android.os.SystemClock
 
 /**
  * UI for an active call. Two key accessibility considerations:
@@ -60,10 +72,10 @@ import com.accessible.dialer.R
 @Composable
 fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
     val state by OngoingCallHolder.state.collectAsState()
+    val audioState by OngoingCallHolder.audio.collectAsState()
     val context = LocalContext.current
-    val audio = remember { context.getSystemService(android.content.Context.AUDIO_SERVICE) as AudioManager }
-    var muted by remember { mutableStateOf(false) }
-    var speaker by remember { mutableStateOf(false) }
+    val muted = audioState.muted
+    val speaker = audioState.speaker
 
     // Close the activity when the call goes away.
     LaunchedEffect(state) {
@@ -71,17 +83,103 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
     }
 
     val active = state as? CallState.Active
-    val statusText = when (active?.telecomState) {
-        Call.STATE_RINGING -> stringResource(R.string.call_incoming)
-        Call.STATE_DIALING, Call.STATE_CONNECTING -> stringResource(R.string.call_outgoing)
-        Call.STATE_ACTIVE -> stringResource(R.string.call_active)
-        Call.STATE_HOLDING -> stringResource(R.string.call_hold)
-        Call.STATE_DISCONNECTED, Call.STATE_DISCONNECTING -> stringResource(R.string.call_ended)
-        else -> ""
+    // Localized strings for the live-region announcement that fires after a swipe
+    // gesture toggles speaker or mute. We resolve them outside the pointer-input
+    // lambda because stringResource is only callable from a @Composable scope.
+    val speakerOnLabel = stringResource(R.string.call_speaker_on)
+    val speakerOffLabel = stringResource(R.string.call_speaker_off)
+    val muteOnLabel = stringResource(R.string.call_mute_on)
+    val muteOffLabel = stringResource(R.string.call_mute_off)
+    // Announcement text rendered into a hidden assertive live region so TalkBack
+    // speaks it as soon as the user crosses a swipe threshold. We suffix a counter
+    // to force a content change even when the user re-toggles to the same string,
+    // otherwise TalkBack would suppress the repeat as a no-op.
+    var announcement by remember { mutableStateOf("") }
+    var announcementSeq by remember { mutableStateOf(0) }
+    fun announce(text: String) {
+        announcementSeq += 1
+        announcement = text
     }
+    // Swipe up = toggle speakerphone, swipe down = toggle mute. Each swipe past the
+    // threshold flips the state once and resets the accumulator, so a single long drag
+    // can flip a control multiple times ("repeating switches") and discrete swipes each
+    // produce one toggle. Only enabled while the call is connected, since those are
+    // the only states where mute/speaker have any effect.
+    val density = LocalDensity.current
+    val swipeThresholdPx = with(density) { 64.dp.toPx() }
+    var dragAccum by remember { mutableStateOf(0f) }
+    val gestureEnabled = active?.telecomState == Call.STATE_ACTIVE ||
+        active?.telecomState == Call.STATE_HOLDING
+    val swipeModifier = if (gestureEnabled) {
+        Modifier.pointerInput(Unit) {
+            detectVerticalDragGestures(
+                onDragStart = { dragAccum = 0f },
+                onDragEnd = { dragAccum = 0f },
+                onDragCancel = { dragAccum = 0f },
+            ) { _, dy ->
+                dragAccum += dy
+                if (dragAccum <= -swipeThresholdPx) {
+                    // Read the *current* mirrored state from the holder so repeated swipes
+                    // within one drag toggle from the latest known route, not from a stale
+                    // captured boolean.
+                    val newOn = !OngoingCallHolder.audio.value.speaker
+                    OngoingCallHolder.setSpeaker(newOn)
+                    announce(if (newOn) speakerOnLabel else speakerOffLabel)
+                    dragAccum = 0f
+                } else if (dragAccum >= swipeThresholdPx) {
+                    val newMuted = !OngoingCallHolder.audio.value.muted
+                    OngoingCallHolder.setMuted(newMuted)
+                    announce(if (newMuted) muteOnLabel else muteOffLabel)
+                    dragAccum = 0f
+                }
+            }
+        }
+    } else Modifier
+    val statusText = ""
     val number = active?.number?.takeIf { it.isNotBlank() } ?: stringResource(R.string.call_unknown)
+    // Resolve a contact display name for the active number (PhoneLookup is the cheap
+    // E.164-tolerant index). Falls back to the bare number when nothing matches or the
+    // number is unknown. Looked up off-thread so the screen can render immediately.
+    val rawNumber = active?.number
+    val contactName by produceState<String?>(initialValue = null, rawNumber) {
+        val n = rawNumber
+        value = if (n.isNullOrBlank()) null else withContext(Dispatchers.IO) {
+            runCatching {
+                val uri = Uri.withAppendedPath(
+                    ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                    Uri.encode(n),
+                )
+                context.contentResolver.query(
+                    uri,
+                    arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+                    null, null, null,
+                )?.use { c ->
+                    if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null
+                }
+            }.getOrNull()
+        }
+    }
+    // Tick once per second so the elapsed duration updates while the call is active.
+    // Only ticks while we have a connect time and the call isn't terminating.
+    val connectTime = active?.connectTimeMillis
+    val isLive = active?.telecomState == Call.STATE_ACTIVE ||
+        active?.telecomState == Call.STATE_HOLDING
+    val elapsedMs by produceState(initialValue = 0L, connectTime, isLive) {
+        if (connectTime == null) {
+            value = 0L
+            return@produceState
+        }
+        while (true) {
+            value = System.currentTimeMillis() - connectTime
+            if (!isLive) break
+            delay(1000)
+        }
+    }
+    val durationText = if (connectTime != null && elapsedMs > 0) {
+        stringResource(R.string.call_duration, formatDuration(elapsedMs))
+    } else ""
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Surface(modifier = Modifier.fillMaxSize().then(swipeModifier), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -93,23 +191,45 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.padding(top = 48.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                )
-                Spacer(Modifier.height(16.dp))
+                // App name and call-state status ("Active call", etc.) intentionally
+                // omitted -- the contact name, number, and live duration are sufficient
+                // and reduce visual + screen-reader noise.
+                contactName?.let { name ->
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text(
                     text = number,
                     style = MaterialTheme.typography.displayLarge,
                     color = MaterialTheme.colorScheme.onBackground,
+                )
+                if (durationText.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = durationText,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+                // Hidden assertive live region: TalkBack reads this immediately when
+                // the swipe toggles speaker/mute. We tie the key to a sequence number so
+                // re-announcing the same string after a back-and-forth toggle still
+                // produces a fresh content change.
+                Text(
+                    text = announcement,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Transparent,
+                    modifier = Modifier
+                        .size(1.dp)
+                        .semantics {
+                            liveRegion = LiveRegionMode.Assertive
+                            contentDescription = "$announcement\u200B${announcementSeq}"
+                        },
                 )
             }
 
@@ -123,8 +243,9 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                         iconOn = Icons.Filled.MicOff,
                         iconOff = Icons.Filled.Mic,
                         onToggle = {
-                            muted = !muted
-                            audio.isMicrophoneMute = muted
+                            val next = !muted
+                            OngoingCallHolder.setMuted(next)
+                            announce(if (next) muteOnLabel else muteOffLabel)
                         },
                     )
                     ToggleControl(
@@ -134,8 +255,9 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                         iconOn = Icons.Filled.VolumeUp,
                         iconOff = Icons.Filled.VolumeUp,
                         onToggle = {
-                            speaker = !speaker
-                            audio.isSpeakerphoneOn = speaker
+                            val next = !speaker
+                            OngoingCallHolder.setSpeaker(next)
+                            announce(if (next) speakerOnLabel else speakerOffLabel)
                         },
                     )
                     val held = active.telecomState == Call.STATE_HOLDING
@@ -200,6 +322,16 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
     }
 }
 
+// Formats elapsed milliseconds as "M:SS" (or "H:MM:SS" past one hour). Used for the
+// in-call duration display.
+private fun formatDuration(ms: Long): String {
+    val total = ms / 1000
+    val s = total % 60
+    val m = (total / 60) % 60
+    val h = total / 3600
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
 @Composable
 private fun BigCircleButton(
     color: Color,
@@ -207,18 +339,27 @@ private fun BigCircleButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
 ) {
-    // Single clickable surface with the label on the icon. Avoids a Box-wrapping-IconButton
-    // sandwich that produces two focusable nodes (one unlabeled) for TalkBack.
-    IconButton(
-        onClick = onClick,
+    // Single clickable surface: a Box with `clickable(role = Role.Button)` produces one
+    // TalkBack focusable that announces the label and is activatable with double-tap.
+    // Earlier we used an IconButton inside a styled Box, which on some TalkBack builds
+    // produced an unlabeled focusable for the IconButton and a non-actionable label for
+    // the Box — i.e. the user could hear "Answer" but the button wouldn't activate.
+    Box(
         modifier = Modifier
             .size(96.dp)
             .clip(CircleShape)
-            .background(color),
+            .background(color)
+            .clickable(
+                onClick = onClick,
+                onClickLabel = contentDescription,
+                role = Role.Button,
+            )
+            .semantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = Color.White,
             modifier = Modifier.size(40.dp),
         )

@@ -32,7 +32,7 @@ fun FavoritesScreen(
     vm: ContactsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val contacts by vm.contacts.collectAsState()
+    val contacts by vm.displayed.collectAsState()
 
     LaunchedEffect(permissionsGranted) {
         if (permissionsGranted && DialerPermissions.granted(context, Manifest.permission.READ_CONTACTS)) {
@@ -57,6 +57,7 @@ fun FavoritesScreen(
                 tapLabel = stringResource(R.string.contacts_call, displayName),
                 onCall = { onCallNumber(contact.number) },
                 onShowInDialpad = { onShowInDialpad(contact.number) },
+                onContactsChanged = { vm.load(context) },
             )
             HorizontalDivider()
         }

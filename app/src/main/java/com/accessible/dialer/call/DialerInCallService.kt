@@ -2,6 +2,7 @@ package com.accessible.dialer.call
 
 import android.content.Intent
 import android.telecom.Call
+import android.telecom.CallAudioState
 import android.telecom.InCallService
 
 /**
@@ -13,6 +14,7 @@ class DialerInCallService : InCallService() {
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
+        OngoingCallHolder.bindService(this)
         OngoingCallHolder.attach(call)
 
         val intent = Intent(this, InCallActivity::class.java)
@@ -23,5 +25,13 @@ class DialerInCallService : InCallService() {
     override fun onCallRemoved(call: Call) {
         super.onCallRemoved(call)
         OngoingCallHolder.detach(call)
+        OngoingCallHolder.bindService(null)
+    }
+
+    override fun onCallAudioStateChanged(audioState: CallAudioState) {
+        super.onCallAudioStateChanged(audioState)
+        // Mirror the real audio route + mute flag into the holder so the UI reflects the
+        // system state and toggles are correctly applied through setAudioRoute/setMuted.
+        OngoingCallHolder.updateAudioState(audioState)
     }
 }

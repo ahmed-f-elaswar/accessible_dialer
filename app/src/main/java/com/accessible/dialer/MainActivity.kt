@@ -3,22 +3,27 @@ package com.accessible.dialer
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.telecom.TelecomManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.accessible.dialer.settings.SettingsRepository
 import com.accessible.dialer.ui.DialerApp
 import com.accessible.dialer.ui.theme.AccessibleDialerTheme
 import com.accessible.dialer.util.DefaultDialer
 import com.accessible.dialer.util.DialerPermissions
+import com.accessible.dialer.util.PhoneAccounts
 
 class MainActivity : ComponentActivity() {
 
@@ -29,16 +34,30 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_DIAL, Intent.ACTION_VIEW -> intent?.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart
             else -> null
         }
+        // CATEGORY_APP_CONTACTS is set by the launcher when the user taps the "Contacts"
+        // entry registered in the manifest. In that case, jump straight to the Contacts
+        // tab instead of opening on the dialpad.
+        val startOnContacts: Boolean =
+            intent?.categories?.contains(Intent.CATEGORY_APP_CONTACTS) == true
         setContent {
-            AccessibleDialerTheme {
-                AppRoot(initialNumber = initialNumber)
-            }
+            AppRoot(initialNumber = initialNumber, startOnContacts = startOnContacts)
         }
     }
 }
 
 @Composable
-private fun AppRoot(initialNumber: String?) {
+private fun AppRoot(initialNumber: String?, startOnContacts: Boolean) {
+    val context = LocalContext.current
+    val themeMode by SettingsRepository.theme.collectAsState()
+    val textScale by SettingsRepository.textScale.collectAsState()
+
+    AccessibleDialerTheme(themeMode = themeMode, textScale = textScale) {
+        AppContent(initialNumber = initialNumber, startOnContacts = startOnContacts)
+    }
+}
+
+@Composable
+private fun AppContent(initialNumber: String?, startOnContacts: Boolean) {
     val context = LocalContext.current
     var permissionsGranted by remember { mutableStateOf(DialerPermissions.allGranted(context)) }
     var isDefault by remember { mutableStateOf(DefaultDialer.isDefault(context)) }
@@ -61,6 +80,7 @@ private fun AppRoot(initialNumber: String?) {
 
     DialerApp(
         initialNumber = initialNumber,
+        startOnContacts = startOnContacts,
         permissionsGranted = permissionsGranted,
         isDefaultDialer = isDefault,
         onRequestPermissions = { permLauncher.launch(DialerPermissions.all) },
@@ -78,14 +98,19 @@ private fun placeCall(context: android.content.Context, number: String) {
     // CALL_PHONE permission must be granted; UI gates this, but defensively check.
     if (!DialerPermissions.granted(context, Manifest.permission.CALL_PHONE)) return
     val uri = Uri.fromParts("tel", number, null)
-    val telecom = context.getSystemService(android.content.Context.TELECOM_SERVICE) as? android.telecom.TelecomManager
+    val telecom = context.getSystemService(android.content.Context.TELECOM_SERVICE) as? TelecomManager
+
+    // If the user picked a default calling account, route the call through it so dual-SIM
+    // devices stop popping the chooser every time. Skipped pre-M because the API is gated.
+    val extras: Bundle? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        PhoneAccounts.resolveSaved(context)?.let { handle ->
+            Bundle().apply { putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle) }
+        }
+    } else null
+
     runCatching {
-        // Prefer TelecomManager so we never trigger an app chooser (e.g. Zoom/Phone),
-        // even when other apps also declare a tel: intent filter. Requires either
-        // CALL_PHONE or MANAGE_OWN_CALLS / default-dialer role, which we hold.
-        telecom?.placeCall(uri, null)
+        telecom?.placeCall(uri, extras)
             ?: run {
-                // Extremely unlikely fallback — keep behavior for very old devices.
                 val intent = Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
             }

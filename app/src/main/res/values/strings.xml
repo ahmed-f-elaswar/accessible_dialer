@@ -9,8 +9,8 @@
 
     <!-- Dialpad -->
     <string name="dialpad_enter_number">Enter phone number</string>
-    <string name="dialpad_call">Place call</string>
-    <string name="dialpad_backspace">Delete last digit</string>
+    <string name="dialpad_call">Call</string>
+    <string name="dialpad_backspace">Delete</string>
     <string name="dialpad_clear_all">Clear all digits</string>
     <string name="key_0_plus_action">Insert plus</string>
     <string name="dialpad_long_press_zero">Long press for plus sign</string>
@@ -52,6 +52,13 @@
     <string name="call_hold">Hold</string>
     <string name="call_resume">Resume</string>
     <string name="call_unknown">Unknown number</string>
+    <string name="call_duration">Duration %1$s</string>
+    <string name="call_speaker_on">Speaker on</string>
+    <string name="call_speaker_off">Speaker off</string>
+    <string name="call_mute_on">Microphone muted</string>
+    <string name="call_mute_off">Microphone unmuted</string>
+    <string name="recents_load_more">Load older calls</string>
+    <string name="recents_loading_more">Loading older calls\u2026</string>
 
     <!-- Recents -->
     <string name="recents_empty">No recent calls</string>
@@ -89,4 +96,246 @@
     <string name="contacts_section_collapse">Collapse</string>
     <string name="call_add">Add call</string>
     <string name="favorites_empty">No favorite contacts</string>
+
+    <!-- Settings tab -->
+    <string name="tab_settings">Settings</string>
+    <string name="more_options">More options</string>
+    <string name="action_back">Back</string>
+    <string name="action_apply">Apply</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="contacts_filter_accounts">Filter by storage location</string>
+    <string name="contacts_filter_dialog_title">Show contacts from</string>
+    <string name="contacts_filter_dialog_subtitle">Pick one or more accounts. Leave all unchecked to show everything.</string>
+    <string name="contacts_filter_clear">Show all</string>
+    <string name="settings_section_display">Display</string>
+    <string name="settings_section_contacts">Contacts</string>
+    <string name="settings_section_calling">Calling</string>
+    <string name="settings_section_accessibility">Accessibility</string>
+    <string name="settings_section_about">About</string>
+
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+
+    <string name="settings_text_size">Text size</string>
+    <string name="settings_text_small">Small</string>
+    <string name="settings_text_default">Default</string>
+    <string name="settings_text_large">Large</string>
+    <string name="settings_text_xlarge">Extra large</string>
+
+    <string name="settings_sort_order">Sort contacts by</string>
+    <string name="settings_sort_first">First name</string>
+    <string name="settings_sort_last">Last name</string>
+    <string name="settings_show_no_phone">Show contacts without phone numbers</string>
+
+    <string name="settings_account_label">Default calling account</string>
+    <string name="settings_account_system_default">Ask each time (system default)</string>
+    <string name="settings_account_none">No selectable calling accounts on this device.</string>
+
+    <string name="settings_haptic">Vibrate on keypad</string>
+    <string name="settings_haptic_sub">Short vibration when a dialpad key is pressed</string>
+    <string name="settings_verbose_digits">Verbose number announcement</string>
+    <string name="settings_verbose_digits_sub">Prefix the entered number with the word "Number" when read by TalkBack</string>
+
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_about_blurb">Accessible, big-key dialer designed for screen-reader and low-vision users.</string>
+
+    <!-- Contact CRUD actions -->
+    <string name="contacts_new">New contact</string>
+    <string name="action_edit_contact">Edit contact</string>
+    <string name="action_delete_contact">Delete contact</string>
+    <string name="action_delete_recent">Delete from recents</string>
+    <string name="action_delete_recent_all">Delete entire entry</string>
+    <string name="action_show_contact_info">Show contact info</string>
+    <string name="dialpad_suggestion_call">%1$s, %2$s</string>
+    <string name="dialpad_digit_deleted">%1$s deleted</string>
+    <string name="dialpad_cleared">Number cleared</string>
+    <string name="action_share_contact">Share contact</string>
+    <string name="action_block_number">Block number</string>
+    <string name="action_block_unavailable">Blocked-numbers screen is not available on this device</string>
+    <string name="action_set_ringtone">Set custom ringtone</string>
+    <string name="action_add_favorite">Add to favorites</string>
+    <string name="action_remove_favorite">Remove from favorites</string>
+    <string name="contact_deleted">Contact deleted</string>
+    <string name="contact_delete_failed">Could not delete contact</string>
+    <string name="delete_contact_title">Delete contact?</string>
+    <string name="delete_contact_message">%1$s will be removed from your address book. This cannot be undone.</string>
+    <string name="delete_contact_confirm">Delete</string>
+    <string name="selection_count">%1$d selected</string>
+    <string name="selection_clear">Clear selection</string>
+    <string name="selection_delete">Delete selected</string>
+    <string name="selection_select_all">Select all</string>
+    <string name="selection_long_press_hint">Long-press to select more</string>
+    <string name="delete_selected_contacts_title">Delete %1$d contacts?</string>
+    <string name="delete_selected_contacts_message">The selected contacts will be removed from your address book. This cannot be undone.</string>
+    <string name="delete_selected_recents_title">Delete %1$d recent entries?</string>
+    <string name="delete_selected_recents_message">The selected call log entries will be removed.</string>
+    <string name="name_fix_idle_title">Ready to scan</string>
+    <string name="name_fix_idle_sub">Press Rescan above to look for contact names that need cleaning, splitting, or tagging.</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Contact details (in-app viewer) -->
+    <string name="contact_details_title">Contact details</string>
+    <string name="contact_details_loading">Loading…</string>
+    <string name="contact_details_no_phone">No phone numbers or emails</string>
+    <string name="contact_details_no_data">No contact information available</string>
+    <string name="contact_details_section_phones">Phone numbers</string>
+    <string name="contact_details_section_emails">Email addresses</string>
+    <string name="contact_details_section_addresses">Addresses</string>
+    <string name="contact_details_section_websites">Websites</string>
+    <string name="contact_details_section_events">Important dates</string>
+    <string name="contact_details_section_notes">Notes</string>
+    <string name="contact_details_section_recent_calls">Recent calls</string>
+    <string name="contact_details_section_actions">Actions</string>
+    <string name="contact_details_organization">Organization</string>
+    <string name="contact_details_nickname">Nickname</string>
+    <string name="action_send_email">Send email</string>
+    <string name="action_copy_email">Copy email address</string>
+    <string name="action_open_map">Open in maps</string>
+    <string name="action_open_website">Open website</string>
+    <string name="action_pin_home">Pin to home screen</string>
+    <string name="event_birthday">Birthday</string>
+    <string name="event_anniversary">Anniversary</string>
+    <string name="event_other">Other date</string>
+    <string name="website_homepage">Homepage</string>
+    <string name="website_blog">Blog</string>
+    <string name="website_profile">Profile</string>
+    <string name="website_home">Home</string>
+    <string name="website_work">Work</string>
+    <string name="website_ftp">FTP</string>
+    <string name="website_other">Website</string>
+
+    <!-- In-app contact editor -->
+    <string name="editor_title_new">New contact</string>
+    <string name="editor_title_edit">Edit contact</string>
+    <string name="editor_save">Save</string>
+    <string name="editor_saved">Contact saved</string>
+    <string name="editor_save_failed">Could not save contact</string>
+    <string name="editor_section_name">Name</string>
+    <string name="editor_field_name">Name</string>
+    <string name="editor_field_display_name">Display name</string>
+    <string name="editor_field_given">First name</string>
+    <string name="editor_field_middle">Middle name</string>
+    <string name="editor_field_family">Last name</string>
+    <string name="editor_field_prefix">Prefix</string>
+    <string name="editor_field_suffix">Suffix</string>
+    <string name="editor_field_phone">Phone number</string>
+    <string name="editor_field_email">Email address</string>
+    <string name="editor_field_address">Address</string>
+    <string name="editor_field_website">Website URL</string>
+    <string name="editor_field_event_date">Date (YYYY-MM-DD)</string>
+    <string name="editor_field_company">Company</string>
+    <string name="editor_field_title">Job title</string>
+    <string name="editor_field_note">Notes</string>
+    <string name="editor_add_phone">Add phone number</string>
+    <string name="editor_add_email">Add email address</string>
+    <string name="editor_add_address">Add address</string>
+    <string name="editor_add_website">Add website</string>
+    <string name="editor_add_event">Add date</string>
+    <string name="editor_remove">Remove</string>
+    <string name="editor_section_account">Storage</string>
+    <string name="editor_field_account">Saved in</string>
+    <string name="editor_account_device">Phone (device only)</string>
+    <string name="editor_account_move_hint">Changing this moves the contact to a different account on save.</string>
+
+    <!-- Share dialog -->
+    <string name="share_dialog_title">Share contact</string>
+    <string name="share_dialog_message">How would you like to share?</string>
+    <string name="share_as_text">Share as text</string>
+    <string name="share_as_file">Share as file (vCard)</string>
+
+    <string name="editor_show_more">Show more fields</string>
+    <string name="editor_show_less">Show fewer fields</string>
+
+    <!-- Duplicate-detection wizard -->
+    <string name="settings_section_tools">Tools</string>
+    <string name="settings_find_duplicates">Find duplicate contacts</string>
+    <string name="settings_find_duplicates_sub">Scan for contacts with the same name, phone, or email and merge them</string>
+    <string name="settings_storage_locations">Where contacts are stored</string>
+    <string name="settings_storage_locations_sub">List the accounts that own your contacts and how many each holds</string>
+    <string name="storage_title">Storage locations</string>
+    <string name="storage_subtitle">Each entry is an account on this device that owns one or more contacts.</string>
+    <string name="storage_total">Total contacts: %1$d</string>
+    <string name="storage_account_local">Local / Phone only</string>
+    <string name="storage_account_sim">SIM card</string>
+    <string name="storage_none">No contacts found.</string>
+    <string name="duplicates_title">Duplicate contacts</string>
+    <string name="duplicates_scanning">Scanning contacts…</string>
+    <string name="duplicates_none_found">No duplicates found</string>
+    <string name="duplicates_none_found_sub">Your contacts look clean. Try again if you\'ve just added or imported new contacts.</string>
+    <string name="duplicates_rescan">Rescan</string>
+    <string name="duplicates_merge">Merge</string>
+    <string name="duplicates_merge_confirm_title">Merge contacts?</string>
+    <string name="duplicates_merge_confirm_message">Merge these contacts into one entry?\n\n%1$s</string>
+    <string name="duplicates_merged">Contacts merged</string>
+    <string name="duplicates_merge_failed">Could not merge contacts</string>
+    <string name="duplicates_merge_all">Merge all</string>
+    <string name="duplicates_merge_all_confirm_title">Merge all duplicates?</string>
+    <string name="duplicates_merge_all_confirm_message">This will merge or clean up %1$d duplicate group(s). Continue?</string>
+    <string name="duplicates_merge_all_result">Merged %1$d of %2$d groups</string>
+    <string name="name_cleanup_title">Clean up names</string>
+    <string name="name_cleanup_none">No names need cleanup</string>
+    <string name="name_cleanup_none_sub">All contact names look clean.</string>
+    <string name="name_cleanup_original">Currently: %1$s</string>
+    <string name="name_cleanup_suggested">Suggested name</string>
+    <string name="name_cleanup_apply">Apply</string>
+    <string name="name_cleanup_keep">Keep</string>
+    <string name="name_cleanup_apply_all">Apply all</string>
+    <string name="name_cleanup_apply_all_confirm_title">Rename all?</string>
+    <string name="name_cleanup_apply_all_confirm_message">This will rename %1$d contact(s) using the suggested cleaned names. Continue?</string>
+    <string name="name_cleanup_apply_all_result">Renamed %1$d of %2$d contacts</string>
+    <string name="name_cleanup_renamed">Contact renamed</string>
+    <string name="name_cleanup_rename_failed">Could not rename contact</string>
+    <string name="settings_name_cleanup">Clean up contact names</string>
+    <string name="settings_name_cleanup_sub">Find names containing emoji or unusual punctuation and tidy them up</string>
+    <string name="settings_name_split">Split combined names</string>
+    <string name="settings_name_split_sub">Find contacts whose full name is stored as one field and split into first / middle / last</string>
+    <string name="name_split_title">Split names</string>
+    <string name="name_split_none">No names need splitting</string>
+    <string name="name_split_none_sub">Every contact already has its name parts filled in.</string>
+    <string name="name_split_original">Currently: %1$s</string>
+    <string name="name_split_reason">This contact\'s name is stored as a single value. Review the suggested split below.</string>
+    <string name="name_split_apply">Apply</string>
+    <string name="name_split_keep">Keep</string>
+    <string name="name_split_apply_all">Apply all</string>
+    <string name="name_split_apply_all_confirm_title">Split all?</string>
+    <string name="name_split_apply_all_confirm_message">This will split %1$d contact name(s) using the suggested parts. Continue?</string>
+    <string name="name_split_apply_all_result">Split %1$d of %2$d contacts</string>
+    <string name="name_split_applied">Contact updated</string>
+    <string name="name_split_failed">Could not update contact</string>
+    <string name="name_split_progress">Contact %1$d of %2$d</string>
+    <string name="name_split_variant_progress">Suggestion %1$d of %2$d</string>
+    <string name="name_split_prev_variant">Previous suggestion</string>
+    <string name="name_split_next_variant">Next suggestion</string>
+    <string name="name_split_skip">Skip this contact</string>
+    <string name="name_split_done_title">All names reviewed</string>
+    <string name="name_split_done_sub">You have gone through every detected contact.</string>
+    <string name="name_split_variant_given_only">First name only</string>
+    <string name="name_split_variant_first_last">First + Last</string>
+    <string name="name_split_variant_first_middle">First + Middle (no last name)</string>
+    <string name="name_split_variant_last_first">Last + First (reversed)</string>
+    <string name="name_split_variant_first_middle_last">First + Middle + Last</string>
+    <string name="name_split_variant_first_familyjoin">First + joined Last name</string>
+    <string name="name_split_variant_first_middlejoin">First + joined Middle (no last name)</string>
+    <string name="name_split_variant_first_middlejoin_last">First + Middle + Last (middle joined)</string>
+    <string name="name_split_variant_first_last_2of3">First + Last (third word dropped into last)</string>
+    <string name="name_split_variant_company">Company / organization</string>
+    <string name="name_split_variant_person_with_company">Person + company (last word is company)</string>
+    <string name="name_split_variant_cleaned_display">Just clean the display name</string>
+
+    <string name="settings_name_fix">Fix contact names</string>
+    <string name="settings_name_fix_sub">One place to clean up garbage characters, fix casing, split combined names, and tag organizations</string>
+    <string name="name_fix_title">Fix contact names</string>
+    <string name="name_fix_none">No name issues found</string>
+    <string name="name_fix_none_sub">Every contact looks clean.</string>
+    <string name="name_fix_reasons">Issues: %1$s</string>
+    <string name="name_fix_reason_junk">unusual characters</string>
+    <string name="name_fix_reason_whitespace">stray whitespace</string>
+    <string name="name_fix_reason_badcase">unusual capitalization</string>
+    <string name="name_fix_reason_org">looks like an organization</string>
+    <string name="name_fix_reason_needs_split">name not split into parts</string>
+    <string name="name_fix_reason_wrong_split">name parts look wrong</string>
+    <string name="name_fix_reason_metadata">extra notes in name</string>
+    <string name="name_fix_reason_duplicate">repeated word</string>
 </resources>
