@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Close
@@ -25,11 +26,13 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -88,6 +91,8 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
     val active = state as? CallState.Active
     // Whether the in-call DTMF keypad overlay is showing.
     var showKeypad by remember { mutableStateOf(false) }
+    // Whether the "reply with message" picker is showing (only meaningful on RINGING).
+    var showReplyPicker by remember { mutableStateOf(false) }
     // Localized strings for the live-region announcement that fires after a swipe
     // gesture toggles speaker or mute. We resolve them outside the pointer-input
     // lambda because stringResource is only callable from a @Composable scope.
@@ -301,6 +306,12 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                             onClick = { OngoingCallHolder.reject() },
                         )
                         BigCircleButton(
+                            color = MaterialTheme.colorScheme.tertiary,
+                            contentDescription = stringResource(R.string.call_reply_message),
+                            icon = Icons.AutoMirrored.Filled.Message,
+                            onClick = { showReplyPicker = true },
+                        )
+                        BigCircleButton(
                             color = MaterialTheme.colorScheme.secondary,
                             contentDescription = stringResource(R.string.call_answer),
                             icon = Icons.Filled.Call,
@@ -322,6 +333,16 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
 
     if (showKeypad) {
         InCallKeypad(onClose = { showKeypad = false })
+    }
+
+    if (showReplyPicker) {
+        ReplyWithMessageDialog(
+            onDismiss = { showReplyPicker = false },
+            onSend = { msg ->
+                showReplyPicker = false
+                OngoingCallHolder.rejectWithMessage(msg)
+            },
+        )
     }
 }
 
@@ -537,4 +558,43 @@ private fun DtmfKey(digit: Char, modifier: Modifier = Modifier) {
             modifier = Modifier.clearAndSetSemantics {},
         )
     }
+}
+
+/**
+ * "Reply with message" picker shown when the user taps the message button on a ringing
+ * call. Picks one of four preset SMS-style strings and hands it to
+ * [OngoingCallHolder.rejectWithMessage], which rejects the call with that text.
+ */
+@Composable
+private fun ReplyWithMessageDialog(
+    onDismiss: () -> Unit,
+    onSend: (String) -> Unit,
+) {
+    val presets = listOf(
+        stringResource(R.string.call_reply_preset_1),
+        stringResource(R.string.call_reply_preset_2),
+        stringResource(R.string.call_reply_preset_3),
+        stringResource(R.string.call_reply_preset_4),
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.call_reply_title)) },
+        text = {
+            Column {
+                presets.forEach { preset ->
+                    TextButton(
+                        onClick = { onSend(preset) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(preset)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.call_reply_cancel))
+            }
+        },
+    )
 }

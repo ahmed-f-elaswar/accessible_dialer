@@ -10,14 +10,37 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.accessible.dialer.settings.SettingsRepository
 import com.accessible.dialer.ui.DialerApp
 import com.accessible.dialer.ui.theme.AccessibleDialerTheme
@@ -74,6 +97,22 @@ private fun AppContent(initialNumber: String?, startOnContacts: Boolean, autoCal
     var permissionsGranted by remember { mutableStateOf(DialerPermissions.allGranted(context)) }
     var isDefault by remember { mutableStateOf(DefaultDialer.isDefault(context)) }
 
+    // Re-check the default-dialer role whenever the Activity comes back to the
+    // foreground. Without this, the welcome gate would keep showing after the user
+    // grants the role from the system Default Apps page (which doesn't fire our
+    // ActivityResult callback).
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val obs = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isDefault = DefaultDialer.isDefault(context)
+                permissionsGranted = DialerPermissions.allGranted(context)
+            }
+        }
+        lifecycle.addObserver(obs)
+        onDispose { lifecycle.removeObserver(obs) }
+    }
+
     val permLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
@@ -88,6 +127,23 @@ private fun AppContent(initialNumber: String?, startOnContacts: Boolean, autoCal
 
     LaunchedEffect(Unit) {
         if (!permissionsGranted) permLauncher.launch(DialerPermissions.all)
+    }
+
+    // Full-screen welcome gate. Renders BEFORE the dialer UI so nothing else of the app
+    // is visible while it's up — the user asked for this to be a true blocking onboarding
+    // screen, not a small dialog beside the dial pad. Once the user becomes the default
+    // phone app *or* explicitly taps "Continue without setting", we let the rest of the
+    // app render. The "continue" dismissal is per-session only — next cold start, the
+    // gate appears again until the role is granted.
+    var dismissedThisSession by remember { mutableStateOf(false) }
+    if (!isDefault && !dismissedThisSession) {
+        WelcomeGate(
+            onSetPhone = {
+                DefaultDialer.requestRoleIntent(context)?.let { roleLauncher.launch(it) }
+            },
+            onContinue = { dismissedThisSession = true },
+        )
+        return
     }
 
     // Fire-and-forget: if we were handed a number from outside, place the call as soon as
@@ -114,6 +170,57 @@ private fun AppContent(initialNumber: String?, startOnContacts: Boolean, autoCal
             placeCall(context, number)
         },
     )
+}
+
+/**
+ * Full-screen onboarding take-over shown until the user grants us the default-phone
+ * role. Covers the entire viewport (top to bottom, edge to edge) so there is no way to
+ * accidentally interact with the dial pad before making the choice — the user
+ * specifically asked for the prompt to *not* sit beside the app controls.
+ */
+@Composable
+private fun WelcomeGate(
+    onSetPhone: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    Scaffold { inner ->
+        Surface(
+            color = MaterialTheme.colorScheme.background,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(inner),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = stringResource(R.string.welcome_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Text(
+                    text = stringResource(R.string.welcome_message),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Button(
+                    onClick = onSetPhone,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.welcome_set_phone))
+                }
+                TextButton(
+                    onClick = onContinue,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.welcome_close))
+                }
+            }
+        }
+    }
 }
 
 private fun placeCall(context: android.content.Context, number: String) {

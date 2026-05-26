@@ -51,6 +51,13 @@
     <string name="call_keypad">Keypad</string>
     <string name="call_hold">Hold</string>
     <string name="call_resume">Resume</string>
+    <string name="call_reply_message">Reply with message</string>
+    <string name="call_reply_title">Reply with…</string>
+    <string name="call_reply_cancel">Cancel</string>
+    <string name="call_reply_preset_1">Can\'t talk now, I\'ll call back.</string>
+    <string name="call_reply_preset_2">On my way.</string>
+    <string name="call_reply_preset_3">I\'ll call you later.</string>
+    <string name="call_reply_preset_4">What\'s up?</string>
     <string name="call_unknown">Unknown number</string>
     <string name="call_duration">Duration %1$s</string>
     <string name="call_via_account">Via %1$s</string>
@@ -197,6 +204,25 @@
     <string name="merge_contact_title">Merge contacts?</string>
     <string name="merge_contact_message">Combine %1$s and %2$s into one contact?</string>
     <string name="merge_contact_confirm">Merge</string>
+    <string name="action_whatsapp">WhatsApp chat</string>
+    <string name="action_show_qr">Show QR code</string>
+    <string name="action_erase_history">Erase call history</string>
+    <string name="action_send_to_voicemail">Send all calls to voicemail</string>
+    <string name="action_stop_send_to_voicemail">Stop sending calls to voicemail</string>
+    <string name="action_sms_unavailable">No messaging app available</string>
+    <string name="action_whatsapp_unavailable">Could not open WhatsApp</string>
+    <string name="erase_history_title">Erase call history?</string>
+    <string name="erase_history_message">Remove all call log entries with %1$s from this device?</string>
+    <string name="erase_history_confirm">Erase</string>
+    <string name="erase_history_done">%1$d call log entries removed</string>
+    <string name="erase_history_none">No call log entries to remove</string>
+    <string name="voicemail_enabled">Future calls will go to voicemail</string>
+    <string name="voicemail_disabled">Calls will ring normally</string>
+    <string name="qr_dialog_title">%1$s — QR code</string>
+    <string name="qr_dialog_hint">Scan to share this contact</string>
+    <string name="qr_dialog_close">Close</string>
+    <string name="qr_dialog_empty">Not enough info to build a QR code</string>
+    <string name="picker_pick_number">Pick a number</string>
     <string name="contact_details_section_storage">Stored in</string>
     <string name="contact_details_section_actions">Actions</string>
     <string name="contact_details_organization">Organization</string>
@@ -375,4 +401,45 @@
     <string name="name_fix_reason_wrong_split">name parts look wrong</string>
     <string name="name_fix_reason_metadata">extra notes in name</string>
     <string name="name_fix_reason_duplicate">repeated word</string>
+
+    <!-- Quiet hours -->
+    <string name="settings_section_quiet">Quiet hours</string>
+    <string name="settings_quiet_enable">Enable quiet hours</string>
+    <string name="settings_quiet_enable_sub">Silently reject every incoming call inside the window</string>
+    <string name="settings_quiet_start">Start time</string>
+    <string name="settings_quiet_end">End time</string>
+    <string name="settings_quiet_threshold">Break-through after</string>
+    <string name="settings_quiet_threshold_sub">Let a caller through if they try this many times in 15 minutes (0 = never)</string>
+    <string name="settings_quiet_threshold_value">%1$d calls</string>
+    <string name="settings_quiet_threshold_value_off">Off</string>
+    <string name="settings_quiet_threshold_title">Break-through threshold</string>
+
+    <!-- Import / Export contacts -->
+    <string name="settings_section_porting">Backup and transfer</string>
+    <string name="settings_export_contacts">Export contacts</string>
+    <string name="settings_export_contacts_sub">Save all your contacts to a file</string>
+    <string name="settings_import_contacts">Import contacts</string>
+    <string name="settings_import_contacts_sub">Load contacts from a vCard (.vcf) file</string>
+    <string name="settings_pick_format">Choose a format</string>
+    <string name="settings_export_done">Exported %1$d contacts</string>
+    <string name="settings_export_empty">No contacts to export</string>
+    <string name="settings_export_failed">Export failed</string>
+    <string name="settings_import_failed">No app found to import the file</string>
+    <string name="settings_cancel">Cancel</string>
+
+    <!-- First-launch welcome dialog -->
+    <string name="welcome_title">Set up the dialer</string>
+    <string name="welcome_message">For this app to ring on incoming calls, place calls, and open contact links, please set it as your default phone app. Android does not have a system\u2011wide \"default contacts\" role; instead, when you open a contact link, choose this app and tap \"Always\".</string>
+    <string name="welcome_set_phone">Set as default phone app</string>
+    <string name="welcome_phone_already">Already the default phone app</string>
+    <string name="welcome_open_default_apps">Open Android default apps</string>
+    <string name="welcome_close">Done</string>
+
+    <!-- Bottom-bar overflow menu -->
+    <string name="action_clear_all_history">Clear all call history</string>
+    <string name="clear_all_history_title">Clear all call history?</string>
+    <string name="clear_all_history_message">This permanently deletes every call from the device call log. Contacts and blocked numbers are not affected.</string>
+    <string name="clear_all_history_confirm">Delete all</string>
+    <string name="clear_all_history_done">Deleted %1$d calls</string>
+    <string name="clear_all_history_failed">Could not delete the call log</string>
 </resources>

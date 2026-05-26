@@ -55,4 +55,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // QR code generation for the "Share via QR" action in contact details.
+    implementation("com.google.zxing:core:3.5.3")
 }

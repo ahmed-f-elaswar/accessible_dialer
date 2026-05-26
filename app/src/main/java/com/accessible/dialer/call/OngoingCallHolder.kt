@@ -72,11 +72,22 @@ object OngoingCallHolder {
 
     fun answer() { current?.answer(android.telecom.VideoProfile.STATE_AUDIO_ONLY) }
     fun reject() { current?.reject(false, null) }
+    /**
+     * Rejects the call and asks Telecom to send [message] as an SMS to the caller. The
+     * default-dialer role grants the necessary RESPOND_VIA_MESSAGE handling on the
+     * carrier service side, so we don't need SEND_SMS ourselves.
+     */
+    fun rejectWithMessage(message: String) {
+        current?.reject(true, message)
+    }
     fun hangup() { current?.disconnect() }
     fun hold() { current?.hold() }
     fun resume() { current?.unhold() }
     fun playDtmf(digit: Char) { current?.playDtmfTone(digit) }
     fun stopDtmf() { current?.stopDtmfTone() }
+
+    /** Tel: number of the currently tracked call, or null if none. */
+    fun currentNumber(): String? = current?.details?.handle?.schemeSpecificPart
 
     private fun publish(call: Call) {
         val details = call.details

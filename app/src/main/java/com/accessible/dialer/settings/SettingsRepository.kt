@@ -30,7 +30,11 @@ object SettingsRepository {
     private const val KEY_CONTACT_ACCOUNT_FILTER = "contact_account_filter"
     private const val KEY_BLOCK_MODE = "block_mode"
     private const val KEY_LAST_TAB = "last_tab"
-
+    private const val KEY_QUIET_ENABLED = "quiet_enabled"
+    private const val KEY_QUIET_START = "quiet_start_min"
+    private const val KEY_QUIET_END = "quiet_end_min"
+    private const val KEY_QUIET_BREAK_THRESHOLD = "quiet_break_threshold"
+    private const val KEY_WELCOME_SHOWN = "welcome_shown"
     enum class ThemeMode { System, Light, Dark }
     enum class TextScale(val factor: Float) {
         Small(0.9f), Default(1.0f), Large(1.2f), ExtraLarge(1.45f);
@@ -89,6 +93,30 @@ object SettingsRepository {
     private val _lastTab = MutableStateFlow<String?>(null)
     val lastTab: StateFlow<String?> get() = _lastTab.asStateFlow()
 
+    // --- Quiet hours -------------------------------------------------------
+    // When enabled and the wall clock is inside [_quietStartMinute, _quietEndMinute),
+    // the CallScreeningService silently rejects every incoming call. Users can still
+    // be reached in emergencies because we count repeated calls from the *same* number
+    // within a short window and let them through once that count crosses the threshold.
+    private val _quietEnabled = MutableStateFlow(false)
+    val quietEnabled: StateFlow<Boolean> get() = _quietEnabled.asStateFlow()
+
+    // Minutes since midnight (0..1439). If start == end the window is treated as
+    // "always on" (i.e. silent always); we don't expose that in the UI though.
+    private val _quietStart = MutableStateFlow(22 * 60) // 22:00
+    val quietStart: StateFlow<Int> get() = _quietStart.asStateFlow()
+
+    private val _quietEnd = MutableStateFlow(7 * 60) // 07:00
+    val quietEnd: StateFlow<Int> get() = _quietEnd.asStateFlow()
+
+    /** Number of repeated calls from the same caller (within 15 min) that breaks quiet hours. 0 disables the bypass. */
+    private val _quietBreakThreshold = MutableStateFlow(3)
+    val quietBreakThreshold: StateFlow<Int> get() = _quietBreakThreshold.asStateFlow()
+
+    /** True once the first-launch welcome / default-role dialog has been dismissed. */
+    private val _welcomeShown = MutableStateFlow(false)
+    val welcomeShown: StateFlow<Boolean> get() = _welcomeShown.asStateFlow()
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -105,8 +133,12 @@ object SettingsRepository {
         _accountFilter.value = prefs.getStringSet(KEY_CONTACT_ACCOUNT_FILTER, emptySet())?.toSet() ?: emptySet()
         _blockMode.value = BlockMode.valueOf(prefs.getString(KEY_BLOCK_MODE, BlockMode.Reject.name) ?: BlockMode.Reject.name)
         _lastTab.value = prefs.getString(KEY_LAST_TAB, null)
+        _quietEnabled.value = prefs.getBoolean(KEY_QUIET_ENABLED, false)
+        _quietStart.value = prefs.getInt(KEY_QUIET_START, 22 * 60).coerceIn(0, 1439)
+        _quietEnd.value = prefs.getInt(KEY_QUIET_END, 7 * 60).coerceIn(0, 1439)
+        _quietBreakThreshold.value = prefs.getInt(KEY_QUIET_BREAK_THRESHOLD, 3).coerceAtLeast(0)
+        _welcomeShown.value = prefs.getBoolean(KEY_WELCOME_SHOWN, false)
     }
-
     fun setTheme(mode: ThemeMode) { _theme.value = mode; prefs.edit { putString(KEY_THEME, mode.name) } }
     fun setTextScale(s: TextScale) { _textScale.value = s; prefs.edit { putString(KEY_TEXT_SCALE, s.name) } }
     fun setSortOrder(o: SortOrder) { _sortOrder.value = o; prefs.edit { putString(KEY_SORT_ORDER, o.name) } }
@@ -140,4 +172,17 @@ object SettingsRepository {
         _lastTab.value = name
         prefs.edit { putString(KEY_LAST_TAB, name) }
     }
+
+    fun setQuietEnabled(v: Boolean) { _quietEnabled.value = v; prefs.edit { putBoolean(KEY_QUIET_ENABLED, v) } }
+    fun setQuietStart(min: Int) {
+        val v = min.coerceIn(0, 1439); _quietStart.value = v; prefs.edit { putInt(KEY_QUIET_START, v) }
+    }
+    fun setQuietEnd(min: Int) {
+        val v = min.coerceIn(0, 1439); _quietEnd.value = v; prefs.edit { putInt(KEY_QUIET_END, v) }
+    }
+    fun setQuietBreakThreshold(n: Int) {
+        val v = n.coerceAtLeast(0); _quietBreakThreshold.value = v; prefs.edit { putInt(KEY_QUIET_BREAK_THRESHOLD, v) }
+    }
+
+    fun setWelcomeShown(v: Boolean) { _welcomeShown.value = v; prefs.edit { putBoolean(KEY_WELCOME_SHOWN, v) } }
 }

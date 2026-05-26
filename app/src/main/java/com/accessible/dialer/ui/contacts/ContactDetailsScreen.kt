@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.ExpandLess
@@ -43,8 +45,11 @@ import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Voicemail
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,6 +72,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -74,6 +80,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -188,6 +195,21 @@ internal fun ContactDetailsScreen(
     var moreExpanded by remember { mutableStateOf(false) }
     val displayName = details?.name?.ifBlank { titleFallback } ?: titleFallback
 
+    // Confirmation + overlays for the new "Erase history", "QR code" and the SMS /
+    // WhatsApp number pickers when the contact has more than one phone.
+    var showEraseHistoryConfirm by remember { mutableStateOf(false) }
+    var showQrDialog by remember { mutableStateOf(false) }
+    // Which inline number picker is active. "sms" / "whatsapp" / null.
+    var numberPickerAction by remember { mutableStateOf<String?>(null) }
+    // SEND_TO_VOICEMAIL flag tracked locally so the row label flips immediately.
+    var sendToVoicemail by remember(contactId) { mutableStateOf(false) }
+    LaunchedEffect(contactId, reloadKey) {
+        sendToVoicemail = withContext(Dispatchers.IO) {
+            ContactOps.isSendToVoicemail(context, contactId)
+        }
+    }
+    val scope = rememberCoroutineScope()
+
     if (showShareSheet) {
         AlertDialog(
             onDismissRequest = { showShareSheet = false },
@@ -239,7 +261,6 @@ internal fun ContactDetailsScreen(
     }
 
     pendingMergeTarget?.let { target ->
-        val scope = rememberCoroutineScope()
         AlertDialog(
             onDismissRequest = { pendingMergeTarget = null },
             title = { Text(stringResource(R.string.merge_contact_title)) },
@@ -265,6 +286,66 @@ internal fun ContactDetailsScreen(
             dismissButton = {
                 TextButton(onClick = { pendingMergeTarget = null }) {
                     Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showEraseHistoryConfirm) {
+        AlertDialog(
+            onDismissRequest = { showEraseHistoryConfirm = false },
+            title = { Text(stringResource(R.string.erase_history_title)) },
+            text = { Text(stringResource(R.string.erase_history_message, displayName)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEraseHistoryConfirm = false
+                    val numbers = details?.phones?.map { it.number }.orEmpty()
+                    scope.launch {
+                        val deleted = withContext(Dispatchers.IO) {
+                            ContactOps.eraseCallHistory(context, numbers)
+                        }
+                        val msgRes =
+                            if (deleted > 0) R.string.erase_history_done
+                            else R.string.erase_history_none
+                        android.widget.Toast.makeText(
+                            context,
+                            if (deleted > 0) context.getString(msgRes, deleted)
+                            else context.getString(msgRes),
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                        // Refresh the recents list under the History header.
+                        reloadKey++
+                    }
+                }) { Text(stringResource(R.string.erase_history_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEraseHistoryConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showQrDialog) {
+        QrCodeDialog(
+            title = stringResource(R.string.qr_dialog_title, displayName),
+            payload = remember(contactId, reloadKey) {
+                ContactOps.buildVCard(context, contactId)
+            },
+            onClose = { showQrDialog = false },
+        )
+    }
+
+    numberPickerAction?.let { action ->
+        val phones = details?.phones.orEmpty()
+        NumberPickerDialog(
+            phones = phones,
+            onDismiss = { numberPickerAction = null },
+            onPick = { number ->
+                numberPickerAction = null
+                when (action) {
+                    "sms" -> ContactOps.sendSms(context, number)
+                    "whatsapp" -> ContactOps.openWhatsApp(context, number)
                 }
             },
         )
@@ -464,6 +545,21 @@ internal fun ContactDetailsScreen(
                     onEdit(contactId)
                 }
                 HorizontalDivider()
+                // Quick chat actions for the contact's primary number (or a picker if
+                // there are multiple). Promoted out of the More group because users
+                // reach for "Message" almost as often as "Call".
+                if (d.phones.isNotEmpty()) {
+                    ActionRow(Icons.Filled.Sms, stringResource(R.string.action_send_message)) {
+                        if (d.phones.size == 1) ContactOps.sendSms(context, d.phones.first().number)
+                        else numberPickerAction = "sms"
+                    }
+                    HorizontalDivider()
+                    ActionRow(Icons.Filled.Chat, stringResource(R.string.action_whatsapp)) {
+                        if (d.phones.size == 1) ContactOps.openWhatsApp(context, d.phones.first().number)
+                        else numberPickerAction = "whatsapp"
+                    }
+                    HorizontalDivider()
+                }
                 ActionRow(
                     icon = Icons.Filled.MoreHoriz,
                     label = stringResource(
@@ -485,6 +581,40 @@ internal fun ContactDetailsScreen(
                         showShareSheet = true
                     }
                     HorizontalDivider()
+                    ActionRow(Icons.Filled.QrCode2, stringResource(R.string.action_show_qr)) {
+                        showQrDialog = true
+                    }
+                    HorizontalDivider()
+                    // Voicemail toggle: flips ContactsContract.Contacts.SEND_TO_VOICEMAIL.
+                    ActionRow(
+                        icon = Icons.Filled.Voicemail,
+                        label = stringResource(
+                            if (sendToVoicemail) R.string.action_stop_send_to_voicemail
+                            else R.string.action_send_to_voicemail
+                        ),
+                    ) {
+                        val next = !sendToVoicemail
+                        if (ContactOps.setSendToVoicemail(context, contactId, next)) {
+                            sendToVoicemail = next
+                            android.widget.Toast.makeText(
+                                context,
+                                context.getString(
+                                    if (next) R.string.voicemail_enabled
+                                    else R.string.voicemail_disabled
+                                ),
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                    HorizontalDivider()
+                    if (d.phones.isNotEmpty()) {
+                        ActionRow(
+                            icon = Icons.Filled.DeleteSweep,
+                            label = stringResource(R.string.action_erase_history),
+                            destructive = true,
+                        ) { showEraseHistoryConfirm = true }
+                        HorizontalDivider()
+                    }
                 }
                 if (d.phones.isNotEmpty()) {
                     val anyBlocked = d.phones.any {
@@ -728,6 +858,139 @@ private fun MergePickerRow(contact: Contact, onPick: () -> Unit) {
         }
     }
 }
+
+/**
+ * Lightweight number picker shown when the user taps Message / WhatsApp on a contact
+ * with more than one phone number. Each row is a single tap target so TalkBack just
+ * announces the number and type.
+ */
+@Composable
+private fun NumberPickerDialog(
+    phones: List<PhoneItem>,
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.picker_pick_number)) },
+        text = {
+            Column {
+                phones.forEach { p ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(role = Role.Button) { onPick(p.number) }
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(p.number, style = MaterialTheme.typography.bodyLarge)
+                            if (p.typeLabel.isNotBlank()) {
+                                Text(
+                                    p.typeLabel,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
+/**
+ * Full-screen QR code overlay. We render the contact as a vCard 3.0 payload using
+ * ZXing's [com.google.zxing.qrcode.QRCodeWriter]; the resulting BitMatrix is converted
+ * to a Bitmap on first composition and cached for the lifetime of the dialog.
+ */
+@Composable
+private fun QrCodeDialog(title: String, payload: String?, onClose: () -> Unit) {
+    val closeLabel = stringResource(R.string.qr_dialog_close)
+    val bitmap = remember(payload) { payload?.let { qrToBitmap(it, 800) } }
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier.semantics {
+                            contentDescription = closeLabel
+                            role = Role.Button
+                        },
+                    ) { Icon(Icons.Filled.ArrowBack, contentDescription = null) }
+                }
+                Spacer(Modifier.size(16.dp))
+                if (bitmap != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(320.dp),
+                    )
+                    Spacer(Modifier.size(16.dp))
+                    Text(
+                        text = stringResource(R.string.qr_dialog_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.qr_dialog_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Encodes [text] as a QR code BitMatrix and converts to a square ARGB Bitmap. Returns
+ * null if encoding fails (e.g. payload too large for the symbol).
+ */
+private fun qrToBitmap(text: String, sizePx: Int): android.graphics.Bitmap? = runCatching {
+    val writer = com.google.zxing.qrcode.QRCodeWriter()
+    val matrix = writer.encode(text, com.google.zxing.BarcodeFormat.QR_CODE, sizePx, sizePx)
+    val w = matrix.width
+    val h = matrix.height
+    val pixels = IntArray(w * h)
+    val black = android.graphics.Color.BLACK
+    val white = android.graphics.Color.WHITE
+    for (y in 0 until h) {
+        val rowOffset = y * w
+        for (x in 0 until w) {
+            pixels[rowOffset + x] = if (matrix.get(x, y)) black else white
+        }
+    }
+    val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+    bmp.setPixels(pixels, 0, w, 0, 0, w, h)
+    bmp
+}.getOrNull()
 
 @Composable
 private fun PhoneRow(

@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Dialpad
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
@@ -30,6 +32,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -350,31 +353,22 @@ private fun SetupBanner(
     onRequestDefaultDialer: () -> Unit,
 ) {
     if (permissionsGranted && isDefaultDialer) return
+    // The "Set as default phone app" prompt is now handled by the startup dialog in
+    // MainActivity (so it isn't shown as a button inside the app). Here we only show
+    // the runtime-permissions card.
+    if (permissionsGranted) return
     Surface(
         color = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            when {
-                !permissionsGranted -> {
-                    Text(
-                        text = stringResource(R.string.perm_required_message),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Button(onClick = onRequestPermissions, modifier = Modifier.padding(top = 8.dp)) {
-                        Text(stringResource(R.string.perm_grant))
-                    }
-                }
-                !isDefaultDialer -> {
-                    Text(
-                        text = stringResource(R.string.default_dialer_banner),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Button(onClick = onRequestDefaultDialer, modifier = Modifier.padding(top = 8.dp)) {
-                        Text(stringResource(R.string.default_dialer_action))
-                    }
-                }
+            Text(
+                text = stringResource(R.string.perm_required_message),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Button(onClick = onRequestPermissions, modifier = Modifier.padding(top = 8.dp)) {
+                Text(stringResource(R.string.perm_grant))
             }
         }
     }

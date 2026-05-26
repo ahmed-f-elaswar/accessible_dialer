@@ -19,27 +19,44 @@ class BlockingCallScreeningService : CallScreeningService() {
         val blocked = number.isNotBlank() &&
             BlockedNumbersRepository.isBlocked(this, number)
 
-        val response = if (blocked) {
-            when (SettingsRepository.blockMode.value) {
-                SettingsRepository.BlockMode.SilentRing ->
-                    // Caller hears normal ringing; my phone stays silent. After their
-                    // ring timeout the carrier routes them to voicemail naturally.
-                    CallResponse.Builder()
-                        .setSilenceCall(true)
-                        .setSkipCallLog(true)
-                        .setSkipNotification(true)
-                        .build()
-                SettingsRepository.BlockMode.Reject ->
-                    CallResponse.Builder()
-                        .setDisallowCall(true)
-                        .setRejectCall(true)
-                        // Don't ring, don't show in any UI, don't add to the system call log.
-                        .setSkipCallLog(true)
-                        .setSkipNotification(true)
-                        .build()
+        // Quiet hours: when active, count repeated attempts from the same number. If the
+        // caller exceeds the configured threshold within a short rolling window we let
+        // them through; otherwise the call is silently rejected.
+        val quietActive = !blocked && QuietHours.isQuietNow()
+        val quietRejected = quietActive && number.isNotBlank() &&
+            !QuietHours.shouldBypassQuiet(number)
+
+        val response = when {
+            blocked -> {
+                when (SettingsRepository.blockMode.value) {
+                    SettingsRepository.BlockMode.SilentRing ->
+                        // Caller hears normal ringing; my phone stays silent. After their
+                        // ring timeout the carrier routes them to voicemail naturally.
+                        CallResponse.Builder()
+                            .setSilenceCall(true)
+                            .setSkipCallLog(true)
+                            .setSkipNotification(true)
+                            .build()
+                    SettingsRepository.BlockMode.Reject ->
+                        CallResponse.Builder()
+                            .setDisallowCall(true)
+                            .setRejectCall(true)
+                            // Don't ring, don't show in any UI, don't add to the system call log.
+                            .setSkipCallLog(true)
+                            .setSkipNotification(true)
+                            .build()
+                }
             }
-        } else {
-            CallResponse.Builder().build()
+            quietRejected ->
+                // Silent reject — looks to the caller like a normal decline, our phone
+                // never makes a sound, but we *do* still log it so the user can see who
+                // tried to reach them during quiet hours.
+                CallResponse.Builder()
+                    .setDisallowCall(true)
+                    .setRejectCall(true)
+                    .setSkipNotification(true)
+                    .build()
+            else -> CallResponse.Builder().build()
         }
         respondToCall(callDetails, response)
     }

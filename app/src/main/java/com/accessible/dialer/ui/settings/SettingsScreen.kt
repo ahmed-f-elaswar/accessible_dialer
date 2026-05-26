@@ -14,8 +14,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.app.TimePickerDialog
+import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -25,6 +30,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.accessible.dialer.util.ContactPorting
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.accessible.dialer.BuildConfig
@@ -63,8 +71,42 @@ fun SettingsScreen(
     val haptic by SettingsRepository.haptic.collectAsState()
     val verbose by SettingsRepository.verboseDigits.collectAsState()
     val savedAccount by SettingsRepository.phoneAccount.collectAsState()
+    val quietEnabled by SettingsRepository.quietEnabled.collectAsState()
+    val quietStart by SettingsRepository.quietStart.collectAsState()
+    val quietEnd by SettingsRepository.quietEnd.collectAsState()
+    val quietThreshold by SettingsRepository.quietBreakThreshold.collectAsState()
 
     val accounts = remember { PhoneAccounts.callable(context) }
+
+    // Export / import launchers. Picking a format remembers it so the CreateDocument
+    // callback knows which writer to invoke.
+    var pendingExport by remember { mutableStateOf<ContactPorting.Format?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("*/*"),
+    ) { uri ->
+        val fmt = pendingExport
+        pendingExport = null
+        if (uri != null && fmt != null) {
+            val n = ContactPorting.export(context, uri, fmt)
+            val msg = when {
+                n < 0 -> context.getString(R.string.settings_export_failed)
+                n == 0 -> context.getString(R.string.settings_export_empty)
+                else -> context.getString(R.string.settings_export_done, n)
+            }
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            runCatching { context.startActivity(ContactPorting.importVCardIntent(uri)) }
+                .onFailure {
+                    Toast.makeText(context, R.string.settings_import_failed, Toast.LENGTH_LONG).show()
+                }
+        }
+    }
+    var showExportFormat by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
@@ -184,6 +226,60 @@ fun SettingsScreen(
             )
         }
 
+        item { SectionHeader(stringResource(R.string.settings_section_quiet)) }
+        item {
+            SwitchRow(
+                title = stringResource(R.string.settings_quiet_enable),
+                subtitle = stringResource(R.string.settings_quiet_enable_sub),
+                checked = quietEnabled,
+                onChange = { SettingsRepository.setQuietEnabled(it) },
+            )
+        }
+        item {
+            TimeRow(
+                title = stringResource(R.string.settings_quiet_start),
+                minute = quietStart,
+                onPick = { SettingsRepository.setQuietStart(it) },
+                context = context,
+            )
+        }
+        item {
+            TimeRow(
+                title = stringResource(R.string.settings_quiet_end),
+                minute = quietEnd,
+                onPick = { SettingsRepository.setQuietEnd(it) },
+                context = context,
+            )
+        }
+        item {
+            ThresholdRow(
+                title = stringResource(R.string.settings_quiet_threshold),
+                subtitle = stringResource(R.string.settings_quiet_threshold_sub),
+                value = quietThreshold,
+            )
+        }
+
+        item { SectionHeader(stringResource(R.string.settings_section_porting)) }
+        item {
+            NavRow(
+                title = stringResource(R.string.settings_export_contacts),
+                subtitle = stringResource(R.string.settings_export_contacts_sub),
+                onClick = { showExportFormat = true },
+            )
+        }
+        item {
+            NavRow(
+                title = stringResource(R.string.settings_import_contacts),
+                subtitle = stringResource(R.string.settings_import_contacts_sub),
+                onClick = {
+                    // .vcf MIME varies between text/x-vcard and text/vcard depending on the
+                    // file. Accept both, and also fall back to */* so users can pick a file
+                    // that lacks the right extension.
+                    importLauncher.launch(arrayOf("text/x-vcard", "text/vcard", "*/*"))
+                },
+            )
+        }
+
         item { SectionHeader(stringResource(R.string.settings_section_about)) }
         item {
             Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
@@ -202,6 +298,135 @@ fun SettingsScreen(
             }
         }
     }
+
+    if (showExportFormat) {
+        FormatPickerDialog(
+            onDismiss = { showExportFormat = false },
+            onPick = { fmt ->
+                showExportFormat = false
+                pendingExport = fmt
+                val suggested = "contacts." + fmt.extension
+                exportLauncher.launch(suggested)
+            },
+        )
+    }
+}
+
+@Composable
+private fun TimeRow(title: String, minute: Int, onPick: (Int) -> Unit, context: Context) {
+    val label = formatTime(minute)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                onClickLabel = title,
+                role = Role.Button,
+                onClick = {
+                    val h = minute / 60
+                    val m = minute % 60
+                    TimePickerDialog(
+                        context,
+                        { _, hh, mm -> onPick(hh * 60 + mm) },
+                        h, m, android.text.format.DateFormat.is24HourFormat(context),
+                    ).show()
+                },
+            )
+            .padding(horizontal = 24.dp, vertical = 14.dp)
+            .semantics { contentDescription = "$title, $label" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun formatTime(minutesSinceMidnight: Int): String {
+    val h = minutesSinceMidnight / 60
+    val m = minutesSinceMidnight % 60
+    return "%02d:%02d".format(h, m)
+}
+
+@Composable
+private fun ThresholdRow(title: String, subtitle: String, value: Int) {
+    val choices = listOf(0, 2, 3, 5, 10)
+    var expanded by remember { mutableStateOf(false) }
+    val current = if (value == 0) stringResource(R.string.settings_quiet_threshold_value_off)
+                  else stringResource(R.string.settings_quiet_threshold_value, value)
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    onClick = { expanded = true },
+                    role = Role.Button,
+                    onClickLabel = title,
+                )
+                .padding(horizontal = 24.dp, vertical = 14.dp)
+                .semantics { contentDescription = "$title, $current" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(current, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            choices.forEach { n ->
+                val label = if (n == 0) stringResource(R.string.settings_quiet_threshold_value_off)
+                            else stringResource(R.string.settings_quiet_threshold_value, n)
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        SettingsRepository.setQuietBreakThreshold(n)
+                        expanded = false
+                    },
+                    trailingIcon = if (n == value) {
+                        { RadioButton(selected = true, onClick = null) }
+                    } else null,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FormatPickerDialog(
+    onDismiss: () -> Unit,
+    onPick: (ContactPorting.Format) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_pick_format)) },
+        text = {
+            Column {
+                ContactPorting.Format.entries.forEach { fmt ->
+                    TextButton(
+                        onClick = { onPick(fmt) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { role = Role.Button },
+                    ) {
+                        Text(fmt.displayName, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.settings_cancel))
+            }
+        },
+    )
 }
 
 @Composable
