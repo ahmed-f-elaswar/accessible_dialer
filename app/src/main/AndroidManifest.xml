@@ -26,6 +26,16 @@
     <uses-permission android:name="android.permission.READ_BLOCKED_NUMBERS" />
     <uses-permission android:name="android.permission.WRITE_BLOCKED_NUMBERS" />
 
+    <!-- Required for the in-app update check against GitHub Releases and for the
+         DownloadManager request that fetches the new APK. The user triggers both
+         explicitly from Settings; we never poll silently. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Lets the in-app updater hand the downloaded APK to the system installer
+         without bouncing the user to a browser. Android still shows the standard
+         "Install unknown apps" toggle for our package on first use. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:name=".DialerApplication"
         android:allowBackup="false"

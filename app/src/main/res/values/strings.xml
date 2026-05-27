@@ -579,6 +579,25 @@
     <string name="settings_section_help">Help</string>
     <string name="settings_user_guide">User guide</string>
     <string name="settings_user_guide_sub">How to use Accessible Dialer</string>
+    <!-- In-app update check (Settings → Help) -->
+    <string name="settings_check_updates">Check for updates</string>
+    <string name="settings_check_updates_sub">Download the latest version from GitHub</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_up_to_date_title">You\'re up to date</string>
+    <string name="update_up_to_date_message">Accessible Dialer %1$s is the latest version.</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_message">A new version %1$s is available. You\'re currently on %2$s.</string>
+    <string name="update_check_failed_title">Couldn\'t check for updates</string>
+    <string name="update_check_failed_message">%1$s</string>
+    <string name="update_action_download">Download &amp; install</string>
+    <string name="update_action_later">Later</string>
+    <string name="update_action_ok">OK</string>
+    <string name="update_download_title">Accessible Dialer %1$s</string>
+    <string name="update_download_subtitle">Downloading update…</string>
+    <string name="update_download_started">Update download started</string>
+    <string name="update_download_failed">Update download failed</string>
+    <string name="update_install_failed">Couldn\'t open the installer</string>
+    <string name="update_install_permission_needed">Allow installing apps from Accessible Dialer to continue</string>
     <string name="user_guide_title">User guide</string>
     <string name="user_guide_intro">A quick tour of every screen and tool. Tap a section to read more.</string>
 

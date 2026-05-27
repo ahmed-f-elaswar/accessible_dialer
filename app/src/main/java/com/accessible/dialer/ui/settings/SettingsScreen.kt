@@ -58,6 +58,7 @@ import com.accessible.dialer.settings.SettingsRepository.SortOrder
 import com.accessible.dialer.settings.SettingsRepository.TextScale
 import com.accessible.dialer.settings.SettingsRepository.ThemeMode
 import com.accessible.dialer.util.PhoneAccounts
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -126,6 +127,8 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_user_guide_sub),
                         onClick = onOpenUserGuide,
                     )
+                    RowDivider()
+                    CheckForUpdatesRow()
                 }
             }
         }
@@ -515,6 +518,133 @@ internal fun NavRow(title: String, subtitle: String?, onClick: () -> Unit) {
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * Settings → Help → Check for updates row.
+ *
+ * Pressed on demand by the user; never polls in the background. Drives a
+ * coroutine that hits the GitHub Releases API via [com.accessible.dialer.util.UpdateChecker]
+ * and shows one of three dialogs depending on the result. The download is
+ * delegated to [com.accessible.dialer.util.Updater] which uses
+ * [android.app.DownloadManager] under the hood so the file lands directly in
+ * Downloads and the system installer takes over — no browser bounce.
+ *
+ * State is kept inside this composable instead of being hoisted into
+ * [com.accessible.dialer.ui.DialerApp] because the dialog is self-contained
+ * (no cross-screen data) and the user is on this exact row when the dialog
+ * shows, so there's no win to having it survive navigation away.
+ */
+@Composable
+private fun CheckForUpdatesRow() {
+    val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    var result by remember {
+        mutableStateOf<com.accessible.dialer.util.UpdateChecker.Result?>(null)
+    }
+    val subtitle = if (checking) {
+        stringResource(R.string.update_checking)
+    } else {
+        stringResource(R.string.settings_check_updates_sub)
+    }
+    NavRow(
+        title = stringResource(R.string.settings_check_updates),
+        subtitle = subtitle,
+        onClick = {
+            if (checking) return@NavRow
+            checking = true
+            scope.launch {
+                val r = com.accessible.dialer.util.UpdateChecker.check()
+                checking = false
+                result = r
+            }
+        },
+    )
+    val current = result
+    if (current != null) {
+        when (current) {
+            is com.accessible.dialer.util.UpdateChecker.Result.UpToDate -> {
+                AlertDialog(
+                    onDismissRequest = { result = null },
+                    title = { Text(stringResource(R.string.update_up_to_date_title)) },
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.update_up_to_date_message,
+                                BuildConfig.VERSION_NAME,
+                            ),
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { result = null }) {
+                            Text(stringResource(R.string.update_action_ok))
+                        }
+                    },
+                )
+            }
+            is com.accessible.dialer.util.UpdateChecker.Result.Error -> {
+                AlertDialog(
+                    onDismissRequest = { result = null },
+                    title = { Text(stringResource(R.string.update_check_failed_title)) },
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.update_check_failed_message,
+                                current.message,
+                            ),
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { result = null }) {
+                            Text(stringResource(R.string.update_action_ok))
+                        }
+                    },
+                )
+            }
+            is com.accessible.dialer.util.UpdateChecker.Result.UpdateAvailable -> {
+                val rel = current.release
+                AlertDialog(
+                    onDismissRequest = { result = null },
+                    title = { Text(stringResource(R.string.update_available_title)) },
+                    text = {
+                        Column {
+                            Text(
+                                stringResource(
+                                    R.string.update_available_message,
+                                    rel.tag,
+                                    BuildConfig.VERSION_NAME,
+                                ),
+                            )
+                            if (rel.notes.isNotBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    rel.notes,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                result = null
+                                com.accessible.dialer.util.Updater.startDownloadAndInstall(
+                                    context, rel.apkUrl, rel.version,
+                                )
+                            },
+                        ) { Text(stringResource(R.string.update_action_download)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { result = null }) {
+                            Text(stringResource(R.string.update_action_later))
+                        }
+                    },
+                )
+            }
+        }
     }
 }
 
