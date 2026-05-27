@@ -112,6 +112,8 @@ fun DialerApp(
     // Full-screen duplicate-detection wizard opened from Settings → Tools.
     var showDuplicates by rememberSaveable { mutableStateOf(false) }
     var showNameFix by rememberSaveable { mutableStateOf(false) }
+    // Spelling-variant normalizer (Mohamed / Mohammad / Mahamed → one canonical).
+    var showNameNormalize by rememberSaveable { mutableStateOf(false) }
     var showBlocked by rememberSaveable { mutableStateOf(false) }
     // Bumped on save to force ContactsScreen to reload.
     var contactsReloadKey by rememberSaveable { mutableStateOf(0) }
@@ -180,6 +182,17 @@ fun DialerApp(
         com.accessible.dialer.ui.contacts.NameFixScreen(
             onBack = {
                 showNameFix = false
+                contactsReloadKey += 1
+            },
+        )
+        return
+    }
+
+    if (showNameNormalize) {
+        androidx.activity.compose.BackHandler { showNameNormalize = false }
+        com.accessible.dialer.ui.contacts.NameNormalizeScreen(
+            onBack = {
+                showNameNormalize = false
                 contactsReloadKey += 1
             },
         )
@@ -310,6 +323,7 @@ fun DialerApp(
                     SettingsScreen(
                         onOpenDuplicates = { showDuplicates = true },
                         onOpenNameFix = { showNameFix = true },
+                        onOpenNameNormalize = { showNameNormalize = true },
                         onOpenBlocked = { showBlocked = true },
                     )
                 } else when (currentTab) {

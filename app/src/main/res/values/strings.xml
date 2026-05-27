@@ -389,6 +389,32 @@
 
     <string name="settings_name_fix">Fix contact names</string>
     <string name="settings_name_fix_sub">One place to clean up garbage characters, fix casing, split combined names, and tag organizations</string>
+    <string name="settings_name_normalize">Normalize name spellings</string>
+    <string name="settings_name_normalize_sub">Find first/middle/last names that sound alike but are spelled differently (Mohamed / Mohammad, Catherine / Katherine) and unify them</string>
+
+    <!-- Name normalize wizard -->
+    <string name="name_normalize_title">Normalize spellings</string>
+    <string name="name_normalize_empty_title">All clear</string>
+    <string name="name_normalize_empty_body">No first, middle, or last names in your contacts look like spelling variants of each other.</string>
+    <string name="name_normalize_slot_given">First name</string>
+    <string name="name_normalize_slot_middle">Middle name</string>
+    <string name="name_normalize_slot_family">Last name</string>
+    <string name="name_normalize_canonical_label">Replace all of these with</string>
+    <string name="name_normalize_variants_hint">Tap a spelling to include or exclude it from the replacement</string>
+    <string name="name_normalize_no_variants_picked">No spellings selected — pick at least one above.</string>
+    <string name="name_normalize_members">Affected contacts</string>
+    <string name="name_normalize_member_sub">Currently \"%1$s\" in \"%2$s\"</string>
+    <string name="name_normalize_expand">Show affected contacts</string>
+    <string name="name_normalize_collapse">Hide affected contacts</string>
+    <string name="name_normalize_apply">Apply</string>
+    <string name="name_normalize_skip">Skip</string>
+    <string name="name_normalize_done">Names updated</string>
+    <string name="name_normalize_failed">Could not update names</string>
+    <string name="name_normalize_progress">Group %1$d of %2$d</string>
+    <string name="name_normalize_prev">Previous group</string>
+    <string name="name_normalize_next">Next group</string>
+    <string name="name_normalize_all_done_title">All done</string>
+    <string name="name_normalize_all_done_sub">You\'ve been through every group of spelling variants.</string>
     <string name="name_fix_title">Fix contact names</string>
     <string name="name_fix_none">No name issues found</string>
     <string name="name_fix_none_sub">Every contact looks clean.</string>
@@ -442,4 +468,17 @@
     <string name="clear_all_history_confirm">Delete all</string>
     <string name="clear_all_history_done">Deleted %1$d calls</string>
     <string name="clear_all_history_failed">Could not delete the call log</string>
+
+    <!-- Voice search -->
+    <string name="voice_search">Voice search</string>
+    <string name="voice_search_prompt">Tap to speak</string>
+    <string name="voice_search_listening">Listening…</string>
+    <string name="voice_search_done">Got it</string>
+    <string name="voice_search_done_btn">Done</string>
+    <string name="voice_search_retry">Try again</string>
+    <string name="voice_search_no_match">Didn\'t catch that. Try again.</string>
+    <string name="voice_search_no_recognizer">No speech recognizer is installed on this device.</string>
+    <string name="voice_search_perm_denied">Microphone permission is required for voice search.</string>
+    <string name="voice_search_network">Couldn\'t reach the speech service. Check your connection.</string>
+    <string name="voice_search_failed">Voice search failed. Please try again.</string>
 </resources>

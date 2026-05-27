@@ -20,10 +20,13 @@ import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +63,7 @@ import com.accessible.dialer.util.PhoneAccounts
 fun SettingsScreen(
     onOpenDuplicates: () -> Unit = {},
     onOpenNameFix: () -> Unit = {},
+    onOpenNameNormalize: () -> Unit = {},
     onOpenBlocked: () -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -110,191 +114,195 @@ fun SettingsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { SectionHeader(stringResource(R.string.settings_section_display)) }
         item {
-            RadioGroup(
-                title = stringResource(R.string.settings_theme),
-                options = ThemeMode.entries.map { it to themeLabel(it) },
-                selected = theme,
-                onSelect = { SettingsRepository.setTheme(it) },
-            )
-        }
-        item {
-            RadioGroup(
-                title = stringResource(R.string.settings_text_size),
-                options = TextScale.entries.map { it to textScaleLabel(it) },
-                selected = textScale,
-                onSelect = { SettingsRepository.setTextScale(it) },
-            )
-        }
-
-        item { SectionHeader(stringResource(R.string.settings_section_contacts)) }
-        item {
-            RadioGroup(
-                title = stringResource(R.string.settings_sort_order),
-                options = listOf(
-                    SortOrder.FirstName to stringResource(R.string.settings_sort_first),
-                    SortOrder.LastName to stringResource(R.string.settings_sort_last),
-                ),
-                selected = sortOrder,
-                onSelect = { SettingsRepository.setSortOrder(it) },
-            )
-        }
-        item {
-            SwitchRow(
-                title = stringResource(R.string.settings_show_no_phone),
-                checked = showNoPhone,
-                onChange = { SettingsRepository.setShowNoPhone(it) },
-            )
-        }
-
-        item { SectionHeader(stringResource(R.string.settings_section_calling)) }
-        if (accounts.isEmpty()) {
-            item {
-                Text(
-                    stringResource(R.string.settings_account_none),
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            item {
-                // Build a single options list: System default + every callable account.
-                val systemDefault = stringResource(R.string.settings_account_system_default)
-                val accountOptions: List<Pair<SettingsRepository.PhoneAccountRef?, String>> =
-                    buildList {
-                        add(null to systemDefault)
-                        accounts.forEach { acc ->
-                            val ref = SettingsRepository.PhoneAccountRef(
-                                componentPackage = acc.handle.componentName.packageName,
-                                componentClass = acc.handle.componentName.className,
-                                id = acc.handle.id,
-                            )
-                            add(ref to acc.label)
-                        }
-                    }
+            SettingsSection(stringResource(R.string.settings_section_display)) {
                 RadioGroup(
-                    title = stringResource(R.string.settings_account_label),
-                    options = accountOptions,
-                    selected = savedAccount,
-                    onSelect = { SettingsRepository.setPhoneAccount(it) },
+                    title = stringResource(R.string.settings_theme),
+                    options = ThemeMode.entries.map { it to themeLabel(it) },
+                    selected = theme,
+                    onSelect = { SettingsRepository.setTheme(it) },
+                )
+                RowDivider()
+                RadioGroup(
+                    title = stringResource(R.string.settings_text_size),
+                    options = TextScale.entries.map { it to textScaleLabel(it) },
+                    selected = textScale,
+                    onSelect = { SettingsRepository.setTextScale(it) },
                 )
             }
         }
 
-        item { SectionHeader(stringResource(R.string.settings_section_accessibility)) }
         item {
-            SwitchRow(
-                title = stringResource(R.string.settings_haptic),
-                subtitle = stringResource(R.string.settings_haptic_sub),
-                checked = haptic,
-                onChange = { SettingsRepository.setHaptic(it) },
-            )
-        }
-        item {
-            SwitchRow(
-                title = stringResource(R.string.settings_verbose_digits),
-                subtitle = stringResource(R.string.settings_verbose_digits_sub),
-                checked = verbose,
-                onChange = { SettingsRepository.setVerboseDigits(it) },
-            )
-        }
-
-        item { SectionHeader(stringResource(R.string.settings_section_tools)) }
-        item {
-            NavRow(
-                title = stringResource(R.string.settings_find_duplicates),
-                subtitle = stringResource(R.string.settings_find_duplicates_sub),
-                onClick = onOpenDuplicates,
-            )
-        }
-        item {
-            NavRow(
-                title = stringResource(R.string.settings_name_fix),
-                subtitle = stringResource(R.string.settings_name_fix_sub),
-                onClick = onOpenNameFix,
-            )
-        }
-        item {
-            NavRow(
-                title = stringResource(R.string.settings_blocked_numbers),
-                subtitle = stringResource(R.string.settings_blocked_numbers_sub),
-                onClick = onOpenBlocked,
-            )
-        }
-
-        item { SectionHeader(stringResource(R.string.settings_section_quiet)) }
-        item {
-            SwitchRow(
-                title = stringResource(R.string.settings_quiet_enable),
-                subtitle = stringResource(R.string.settings_quiet_enable_sub),
-                checked = quietEnabled,
-                onChange = { SettingsRepository.setQuietEnabled(it) },
-            )
-        }
-        item {
-            TimeRow(
-                title = stringResource(R.string.settings_quiet_start),
-                minute = quietStart,
-                onPick = { SettingsRepository.setQuietStart(it) },
-                context = context,
-            )
-        }
-        item {
-            TimeRow(
-                title = stringResource(R.string.settings_quiet_end),
-                minute = quietEnd,
-                onPick = { SettingsRepository.setQuietEnd(it) },
-                context = context,
-            )
-        }
-        item {
-            ThresholdRow(
-                title = stringResource(R.string.settings_quiet_threshold),
-                subtitle = stringResource(R.string.settings_quiet_threshold_sub),
-                value = quietThreshold,
-            )
-        }
-
-        item { SectionHeader(stringResource(R.string.settings_section_porting)) }
-        item {
-            NavRow(
-                title = stringResource(R.string.settings_export_contacts),
-                subtitle = stringResource(R.string.settings_export_contacts_sub),
-                onClick = { showExportFormat = true },
-            )
-        }
-        item {
-            NavRow(
-                title = stringResource(R.string.settings_import_contacts),
-                subtitle = stringResource(R.string.settings_import_contacts_sub),
-                onClick = {
-                    // .vcf MIME varies between text/x-vcard and text/vcard depending on the
-                    // file. Accept both, and also fall back to */* so users can pick a file
-                    // that lacks the right extension.
-                    importLauncher.launch(arrayOf("text/x-vcard", "text/vcard", "*/*"))
-                },
-            )
-        }
-
-        item { SectionHeader(stringResource(R.string.settings_section_about)) }
-        item {
-            Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
-                Text(
-                    stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            SettingsSection(stringResource(R.string.settings_section_contacts)) {
+                RadioGroup(
+                    title = stringResource(R.string.settings_sort_order),
+                    options = listOf(
+                        SortOrder.FirstName to stringResource(R.string.settings_sort_first),
+                        SortOrder.LastName to stringResource(R.string.settings_sort_last),
+                    ),
+                    selected = sortOrder,
+                    onSelect = { SettingsRepository.setSortOrder(it) },
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    stringResource(R.string.settings_about_blurb),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                RowDivider()
+                SwitchRow(
+                    title = stringResource(R.string.settings_show_no_phone),
+                    checked = showNoPhone,
+                    onChange = { SettingsRepository.setShowNoPhone(it) },
                 )
+            }
+        }
+
+        item {
+            SettingsSection(stringResource(R.string.settings_section_calling)) {
+                if (accounts.isEmpty()) {
+                    Text(
+                        stringResource(R.string.settings_account_none),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    // Build a single options list: System default + every callable account.
+                    val systemDefault = stringResource(R.string.settings_account_system_default)
+                    val accountOptions: List<Pair<SettingsRepository.PhoneAccountRef?, String>> =
+                        buildList {
+                            add(null to systemDefault)
+                            accounts.forEach { acc ->
+                                val ref = SettingsRepository.PhoneAccountRef(
+                                    componentPackage = acc.handle.componentName.packageName,
+                                    componentClass = acc.handle.componentName.className,
+                                    id = acc.handle.id,
+                                )
+                                add(ref to acc.label)
+                            }
+                        }
+                    RadioGroup(
+                        title = stringResource(R.string.settings_account_label),
+                        options = accountOptions,
+                        selected = savedAccount,
+                        onSelect = { SettingsRepository.setPhoneAccount(it) },
+                    )
+                }
+            }
+        }
+
+        item {
+            SettingsSection(stringResource(R.string.settings_section_accessibility)) {
+                SwitchRow(
+                    title = stringResource(R.string.settings_haptic),
+                    subtitle = stringResource(R.string.settings_haptic_sub),
+                    checked = haptic,
+                    onChange = { SettingsRepository.setHaptic(it) },
+                )
+                RowDivider()
+                SwitchRow(
+                    title = stringResource(R.string.settings_verbose_digits),
+                    subtitle = stringResource(R.string.settings_verbose_digits_sub),
+                    checked = verbose,
+                    onChange = { SettingsRepository.setVerboseDigits(it) },
+                )
+            }
+        }
+
+        item {
+            SettingsSection(stringResource(R.string.settings_section_tools)) {
+                NavRow(
+                    title = stringResource(R.string.settings_find_duplicates),
+                    subtitle = stringResource(R.string.settings_find_duplicates_sub),
+                    onClick = onOpenDuplicates,
+                )
+                RowDivider()
+                NavRow(
+                    title = stringResource(R.string.settings_name_fix),
+                    subtitle = stringResource(R.string.settings_name_fix_sub),
+                    onClick = onOpenNameFix,
+                )
+                RowDivider()
+                NavRow(
+                    title = stringResource(R.string.settings_name_normalize),
+                    subtitle = stringResource(R.string.settings_name_normalize_sub),
+                    onClick = onOpenNameNormalize,
+                )
+                RowDivider()
+                NavRow(
+                    title = stringResource(R.string.settings_blocked_numbers),
+                    subtitle = stringResource(R.string.settings_blocked_numbers_sub),
+                    onClick = onOpenBlocked,
+                )
+            }
+        }
+
+        item {
+            SettingsSection(stringResource(R.string.settings_section_quiet)) {
+                SwitchRow(
+                    title = stringResource(R.string.settings_quiet_enable),
+                    subtitle = stringResource(R.string.settings_quiet_enable_sub),
+                    checked = quietEnabled,
+                    onChange = { SettingsRepository.setQuietEnabled(it) },
+                )
+                RowDivider()
+                TimeRow(
+                    title = stringResource(R.string.settings_quiet_start),
+                    minute = quietStart,
+                    onPick = { SettingsRepository.setQuietStart(it) },
+                    context = context,
+                )
+                RowDivider()
+                TimeRow(
+                    title = stringResource(R.string.settings_quiet_end),
+                    minute = quietEnd,
+                    onPick = { SettingsRepository.setQuietEnd(it) },
+                    context = context,
+                )
+                RowDivider()
+                ThresholdRow(
+                    title = stringResource(R.string.settings_quiet_threshold),
+                    subtitle = stringResource(R.string.settings_quiet_threshold_sub),
+                    value = quietThreshold,
+                )
+            }
+        }
+
+        item {
+            SettingsSection(stringResource(R.string.settings_section_porting)) {
+                NavRow(
+                    title = stringResource(R.string.settings_export_contacts),
+                    subtitle = stringResource(R.string.settings_export_contacts_sub),
+                    onClick = { showExportFormat = true },
+                )
+                RowDivider()
+                NavRow(
+                    title = stringResource(R.string.settings_import_contacts),
+                    subtitle = stringResource(R.string.settings_import_contacts_sub),
+                    onClick = {
+                        // .vcf MIME varies between text/x-vcard and text/vcard depending on the
+                        // file. Accept both, and also fall back to */* so users can pick a file
+                        // that lacks the right extension.
+                        importLauncher.launch(arrayOf("text/x-vcard", "text/vcard", "*/*"))
+                    },
+                )
+            }
+        }
+
+        item {
+            SettingsSection(stringResource(R.string.settings_section_about)) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        stringResource(R.string.settings_about_blurb),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -331,7 +339,7 @@ private fun TimeRow(title: String, minute: Int, onPick: (Int) -> Unit, context: 
                     ).show()
                 },
             )
-            .padding(horizontal = 24.dp, vertical = 14.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
             .semantics { contentDescription = "$title, $label" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -367,7 +375,7 @@ private fun ThresholdRow(title: String, subtitle: String, value: Int) {
                     role = Role.Button,
                     onClickLabel = title,
                 )
-                .padding(horizontal = 24.dp, vertical = 14.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
                 .semantics { contentDescription = "$title, $current" },
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -430,15 +438,36 @@ private fun FormatPickerDialog(
 }
 
 @Composable
-private fun SectionHeader(text: String) {
-    Spacer(Modifier.height(8.dp))
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
+private fun SettingsSection(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+        )
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
     )
-    HorizontalDivider()
 }
 
 @Composable
@@ -456,7 +485,7 @@ private fun SwitchRow(
                 onClick = { onChange(!checked) },
                 role = Role.Switch,
             )
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -501,7 +530,7 @@ private fun <T> RadioGroup(
                     role = Role.Button,
                     onClickLabel = title,
                 )
-                .padding(horizontal = 24.dp, vertical = 14.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
                 .semantics { contentDescription = "$title, $currentLabel" },
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -542,7 +571,7 @@ private fun NavRow(title: String, subtitle: String?, onClick: () -> Unit) {
                 role = Role.Button,
                 onClickLabel = title,
             )
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -555,6 +584,11 @@ private fun NavRow(title: String, subtitle: String?, onClick: () -> Unit) {
                 )
             }
         }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

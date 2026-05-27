@@ -3,6 +3,17 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Load signing config from <repo>/keystore.properties when present so credentials
+// stay out of source control. Falls back to debug signing when the file is
+// missing so plain `assembleDebug` builds still work for fresh checkouts.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = java.util.Properties().apply {
+    if (keystorePropsFile.exists()) {
+        keystorePropsFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseSigning = keystoreProps.getProperty("storeFile")?.isNotBlank() == true
+
 android {
     namespace = "com.accessible.dialer"
     compileSdk = 34
@@ -15,10 +26,24 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

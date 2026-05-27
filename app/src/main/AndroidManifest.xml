@@ -14,6 +14,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Required for in-app voice search (Google-style live transcription in the
+         Contacts search field). The system speech recognizer (Google app / OEM) does
+         the actual recognition, but we still need RECORD_AUDIO because we own the
+         microphone session via SpeechRecognizer.startListening(). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Reading and writing system blocked numbers requires either being the default
          dialer / SMS app (which we are) or these privileged permissions. Declaring
@@ -110,4 +115,13 @@
             </intent-filter>
         </service>
     </application>
+
+    <!-- Lets us discover the system speech recognizer service from the foreground
+         app (Android 11+ package visibility). Without this, SpeechRecognizer can
+         report "no recognizer available" on devices with Google app installed. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
 </manifest>

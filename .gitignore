@@ -17,6 +17,7 @@ captures/
 *.dex
 *.keystore
 *.jks
+keystore.properties
 release/
 out/
 bin/

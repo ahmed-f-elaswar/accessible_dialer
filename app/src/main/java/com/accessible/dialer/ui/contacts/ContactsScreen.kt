@@ -1,7 +1,12 @@
 package com.accessible.dialer.ui.contacts
 
 import android.Manifest
+import android.content.pm.PackageManager
+import android.speech.SpeechRecognizer
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +29,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -59,9 +65,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.accessible.dialer.R
 import com.accessible.dialer.util.ContactOps
+import com.accessible.dialer.voice.VoiceSearchSheet
 import com.accessible.dialer.util.DialerPermissions
 import com.accessible.dialer.util.RowActions
 import kotlinx.coroutines.Dispatchers
@@ -95,6 +103,19 @@ fun ContactsScreen(
     val query by vm.query.collectAsState()
     val accountFilter by com.accessible.dialer.settings.SettingsRepository.accountFilter.collectAsState()
     var showFilterDialog by remember { mutableStateOf(false) }
+    // Voice search (Google-style live transcription). The sheet owns its own
+    // SpeechRecognizer; this screen only tracks visibility and the permission flow.
+    var showVoiceSearch by remember { mutableStateOf(false) }
+    val voicePermDeniedMsg = stringResource(R.string.voice_search_perm_denied)
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            showVoiceSearch = true
+        } else {
+            Toast.makeText(context, voicePermDeniedMsg, Toast.LENGTH_SHORT).show()
+        }
+    }
     // Multi-select state. Long-pressing any row enters selection mode; while it is
     // active a tap toggles selection instead of opening the contact.
     val selectedIds = remember { mutableStateListOf<Long>() }
@@ -166,6 +187,18 @@ fun ContactsScreen(
                 },
             )
         }
+        if (showVoiceSearch) {
+            VoiceSearchSheet(
+                onResult = { text ->
+                    // The recognizer returns the final transcript; route it straight
+                    // into the existing search filter so the contact list updates as
+                    // if the user had typed it.
+                    vm.setQuery(text)
+                    showVoiceSearch = false
+                },
+                onDismiss = { showVoiceSearch = false },
+            )
+        }
         Column(Modifier.fillMaxSize().padding(inner)) {
             if (selectionActive) {
                 SelectionBar(
@@ -194,6 +227,34 @@ fun ContactsScreen(
                         .weight(1f)
                         .padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
                 )
+                // Mic icon — opens a live-transcription bottom sheet that drops the
+                // recognized text into the search field. Hidden when no speech
+                // recognizer is installed (e.g. minimal AOSP builds without Google app).
+                val voiceLabel = stringResource(R.string.voice_search)
+                if (SpeechRecognizer.isRecognitionAvailable(context)) {
+                    IconButton(
+                        onClick = {
+                            val granted = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.RECORD_AUDIO,
+                            ) == PackageManager.PERMISSION_GRANTED
+                            if (granted) {
+                                showVoiceSearch = true
+                            } else {
+                                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            }
+                        },
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .semantics { contentDescription = voiceLabel },
+                    ) {
+                        Icon(
+                            Icons.Filled.Mic,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 IconButton(
                     onClick = { showFilterDialog = true },
                     modifier = Modifier
