@@ -1,7 +1,7 @@
 {
-  "versionName": "1.1.1",
-  "versionCode": 3,
-  "tag": "v1.1.1",
-  "apkUrl": "https://github.com/ahmed-f-elaswar/accessible_dialer/releases/download/v1.1.1/app-release.apk",
-  "notes": "Update checker now reads latest.json from the repo (no API rate limit).\nMaintainer can roll out updates by editing one file."
+  "versionName": "1.1.2",
+  "versionCode": 4,
+  "tag": "v1.1.2",
+  "apkUrl": "https://github.com/ahmed-f-elaswar/accessible_dialer/releases/download/v1.1.2/app-release.apk",
+  "notes": "Test build for the new latest.json update flow."
 }
