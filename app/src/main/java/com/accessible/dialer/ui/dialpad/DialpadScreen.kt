@@ -44,7 +44,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,12 +77,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.AccessibilityDelegateCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import com.accessible.dialer.R
 import com.accessible.dialer.settings.SettingsRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Big-key dialpad with:
@@ -98,6 +100,12 @@ fun DialpadScreen(
     onNumberChange: (String) -> Unit,
     onCall: () -> Unit,
     permissionsGranted: Boolean,
+    /**
+     * Place a call to an arbitrary number, bypassing the on-screen digit display.
+     * Used by the speed-dial long-press flow so a long-press on "3" can dial the
+     * bound contact directly instead of first pushing "3" into the number field.
+     */
+    onCallNumber: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val rootView = LocalView.current
@@ -112,8 +120,10 @@ fun DialpadScreen(
     }
     DisposableEffect(Unit) { onDispose { tone.release() } }
 
-    val hapticEnabled by SettingsRepository.haptic.collectAsState()
-    val verboseDigits by SettingsRepository.verboseDigits.collectAsState()
+    val hapticEnabled by SettingsRepository.haptic.collectAsStateWithLifecycle()
+    val verboseDigits by SettingsRepository.verboseDigits.collectAsStateWithLifecycle()
+    val speedDial by SettingsRepository.speedDial.collectAsStateWithLifecycle()
+    val rootContext = LocalContext.current
 
     fun feedback(toneId: Int) {
         runCatching { tone.startTone(toneId, 120) }
@@ -127,6 +137,22 @@ fun DialpadScreen(
     fun append(ch: Char, toneId: Int) {
         feedback(toneId)
         onNumberChange(number + ch)
+    }
+
+    /**
+     * Long-press handler for digit keys 1-9: if the user has bound a contact to
+     * [digit] in Settings → Speed dial, place that call instantly and announce it
+     * for TalkBack users. Returns true if a speed dial fired, false otherwise so
+     * callers can decide whether to surface a long-click hint to the user.
+     */
+    fun handleDigitLongPress(digit: Int): Boolean {
+        val bound = speedDial[digit]?.takeIf { it.isNotBlank() } ?: return false
+        feedback(ToneGenerator.TONE_PROP_ACK)
+        rootView.announceForAccessibility(
+            rootContext.getString(R.string.speed_dial_calling, bound)
+        )
+        onCallNumber(bound)
+        return true
     }
 
     @OptIn(ExperimentalComposeUiApi::class)
@@ -187,21 +213,41 @@ fun DialpadScreen(
         // performs T9 matching against name letters).
         DialpadSuggestions(query = number, onPick = { picked -> onNumberChange(picked) })
 
-        // 4 rows of keys
+        // 4 rows of keys. Long-pressing a digit 1-9 fires its speed-dial binding
+        // (if any) via [handleDigitLongPress]; otherwise the long-press is a no-op.
+        // Long-press 0 still inserts "+" for international prefixes.
         DialRow {
-            Key("1", stringResource(R.string.key_1_desc), Modifier.weight(1f)) { append('1', ToneGenerator.TONE_DTMF_1) }
-            Key("2", stringResource(R.string.key_2_desc), Modifier.weight(1f)) { append('2', ToneGenerator.TONE_DTMF_2) }
-            Key("3", stringResource(R.string.key_3_desc), Modifier.weight(1f)) { append('3', ToneGenerator.TONE_DTMF_3) }
+            DigitKey("1", stringResource(R.string.key_1_desc), 1, Modifier.weight(1f),
+                onClick = { append('1', ToneGenerator.TONE_DTMF_1) },
+                onLongClick = { handleDigitLongPress(1) })
+            DigitKey("2", stringResource(R.string.key_2_desc), 2, Modifier.weight(1f),
+                onClick = { append('2', ToneGenerator.TONE_DTMF_2) },
+                onLongClick = { handleDigitLongPress(2) })
+            DigitKey("3", stringResource(R.string.key_3_desc), 3, Modifier.weight(1f),
+                onClick = { append('3', ToneGenerator.TONE_DTMF_3) },
+                onLongClick = { handleDigitLongPress(3) })
         }
         DialRow {
-            Key("4", stringResource(R.string.key_4_desc), Modifier.weight(1f)) { append('4', ToneGenerator.TONE_DTMF_4) }
-            Key("5", stringResource(R.string.key_5_desc), Modifier.weight(1f)) { append('5', ToneGenerator.TONE_DTMF_5) }
-            Key("6", stringResource(R.string.key_6_desc), Modifier.weight(1f)) { append('6', ToneGenerator.TONE_DTMF_6) }
+            DigitKey("4", stringResource(R.string.key_4_desc), 4, Modifier.weight(1f),
+                onClick = { append('4', ToneGenerator.TONE_DTMF_4) },
+                onLongClick = { handleDigitLongPress(4) })
+            DigitKey("5", stringResource(R.string.key_5_desc), 5, Modifier.weight(1f),
+                onClick = { append('5', ToneGenerator.TONE_DTMF_5) },
+                onLongClick = { handleDigitLongPress(5) })
+            DigitKey("6", stringResource(R.string.key_6_desc), 6, Modifier.weight(1f),
+                onClick = { append('6', ToneGenerator.TONE_DTMF_6) },
+                onLongClick = { handleDigitLongPress(6) })
         }
         DialRow {
-            Key("7", stringResource(R.string.key_7_desc), Modifier.weight(1f)) { append('7', ToneGenerator.TONE_DTMF_7) }
-            Key("8", stringResource(R.string.key_8_desc), Modifier.weight(1f)) { append('8', ToneGenerator.TONE_DTMF_8) }
-            Key("9", stringResource(R.string.key_9_desc), Modifier.weight(1f)) { append('9', ToneGenerator.TONE_DTMF_9) }
+            DigitKey("7", stringResource(R.string.key_7_desc), 7, Modifier.weight(1f),
+                onClick = { append('7', ToneGenerator.TONE_DTMF_7) },
+                onLongClick = { handleDigitLongPress(7) })
+            DigitKey("8", stringResource(R.string.key_8_desc), 8, Modifier.weight(1f),
+                onClick = { append('8', ToneGenerator.TONE_DTMF_8) },
+                onLongClick = { handleDigitLongPress(8) })
+            DigitKey("9", stringResource(R.string.key_9_desc), 9, Modifier.weight(1f),
+                onClick = { append('9', ToneGenerator.TONE_DTMF_9) },
+                onLongClick = { handleDigitLongPress(9) })
         }
         DialRow {
             Key("*", stringResource(R.string.key_star_desc), Modifier.weight(1f)) { append('*', ToneGenerator.TONE_DTMF_S) }
@@ -268,6 +314,49 @@ private fun DialRow(content: @Composable androidx.compose.foundation.layout.RowS
         modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) { content() }
+}
+
+/**
+ * Wrapper around [Key] for digits 1-9 that augments the content description with the
+ * bound speed-dial contact name (if any) so TalkBack announces e.g. "3, long-press for
+ * John Doe", and surfaces a localized long-click label in the TalkBack local context
+ * menu. Falls back to the plain digit [description] when no binding is configured.
+ */
+@Composable
+private fun DigitKey(
+    label: String,
+    description: String,
+    digit: Int,
+    modifier: Modifier,
+    onClick: () -> Unit,
+    onLongClick: () -> Boolean,
+) {
+    val speedDial by SettingsRepository.speedDial.collectAsStateWithLifecycle()
+    val bound = speedDial[digit]?.takeIf { it.isNotBlank() }
+    val context = LocalContext.current
+    val effectiveDescription = if (bound != null) {
+        // Resolve a friendly contact name (off-thread) so screen-reader users
+        // hear who the long-press will call. Falls back to the raw number while
+        // the lookup is still in flight or if no contact match exists.
+        val contactName by produceState<String?>(initialValue = null, bound) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    com.accessible.dialer.util.RowActions.lookupContactName(context, bound)
+                }.getOrNull()
+            }
+        }
+        val target = contactName?.takeIf { it.isNotBlank() } ?: bound
+        "$description, " + context.getString(R.string.speed_dial_calling, target)
+    } else description
+    val longLabel = bound?.let { context.getString(R.string.speed_dial_calling, it) }
+    Key(
+        label = label,
+        description = effectiveDescription,
+        modifier = modifier,
+        onClick = onClick,
+        onLongClick = { onLongClick() },
+        longClickLabel = longLabel,
+    )
 }
 
 /**
@@ -421,7 +510,7 @@ private fun BackspaceButton(enabled: Boolean, onClick: () -> Unit, onLongClick: 
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Filled.Backspace,
+            imageVector = Icons.AutoMirrored.Filled.Backspace,
             contentDescription = null,
             tint = if (enabled) MaterialTheme.colorScheme.onBackground
                 else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),

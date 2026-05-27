@@ -47,7 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -98,10 +98,10 @@ fun ContactsScreen(
     vm: ContactsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val contacts by vm.displayed.collectAsState()
-    val allContacts by vm.contacts.collectAsState()
-    val query by vm.query.collectAsState()
-    val accountFilter by com.accessible.dialer.settings.SettingsRepository.accountFilter.collectAsState()
+    val contacts by vm.displayed.collectAsStateWithLifecycle()
+    val allContacts by vm.contacts.collectAsStateWithLifecycle()
+    val query by vm.query.collectAsStateWithLifecycle()
+    val accountFilter by com.accessible.dialer.settings.SettingsRepository.accountFilter.collectAsStateWithLifecycle()
     var showFilterDialog by remember { mutableStateOf(false) }
     // Voice search (Google-style live transcription). The sheet owns its own
     // SpeechRecognizer; this screen only tracks visibility and the permission flow.
@@ -302,15 +302,30 @@ private fun AccountFilterDialog(
     onDismiss: () -> Unit,
     onApply: (Set<String>) -> Unit,
 ) {
-    // Build the option list from the contacts actually present, so the user never sees
-    // a checkbox for an account they don't own. Counted so the row shows how many
-    // contacts each account would contribute.
+    // Build the option list as the *union* of:
+    //   - every account currently owning one of the loaded contacts (so counts
+    //     match the visible list), and
+    //   - every storage account the device knows about (so accounts that exist
+    //     but currently hold zero contacts — e.g. a Google account the user
+    //     just added — are still selectable as a filter).
+    // Counts are taken from `allContacts` only; accounts coming purely from
+    // ContactAccounts.list() show a 0.
+    val context = LocalContext.current
     val options = remember(allContacts) {
         val counts = LinkedHashMap<String, Int>()
         allContacts.forEach { c ->
             c.accountKeys.forEach { k -> counts[k] = (counts[k] ?: 0) + 1 }
         }
-        counts.entries.sortedByDescending { it.value }
+        com.accessible.dialer.util.ContactAccounts.list(context).forEach { entry ->
+            counts.putIfAbsent(entry.key, 0)
+        }
+        // Sort: accounts with contacts first (by descending count), then
+        // empty/synthetic accounts alphabetically so the "Local / Phone only"
+        // bucket doesn't outrank a real Google account just because of name.
+        counts.entries.sortedWith(
+            compareByDescending<Map.Entry<String, Int>> { it.value }
+                .thenBy { friendlyAccountLabel(it.key).lowercase() }
+        )
     }
     val selection = remember { mutableStateMapOf<String, Boolean>().apply {
         options.forEach { (k, _) -> put(k, k in initial) }

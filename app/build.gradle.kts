@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,7 +9,7 @@ plugins {
 // stay out of source control. Falls back to debug signing when the file is
 // missing so plain `assembleDebug` builds still work for fresh checkouts.
 val keystorePropsFile = rootProject.file("keystore.properties")
-val keystoreProps = java.util.Properties().apply {
+val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) {
         keystorePropsFile.inputStream().use { load(it) }
     }
@@ -73,6 +75,10 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
+    // collectAsStateWithLifecycle: stops upstream Flow collection while the
+    // host (Activity/Fragment) is STOPPED, so screens that are off-screen
+    // don't keep recomposing on background state changes.
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")

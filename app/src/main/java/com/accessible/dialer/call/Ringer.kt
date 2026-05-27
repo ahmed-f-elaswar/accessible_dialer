@@ -11,7 +11,9 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.ContactsContract
+import android.telecom.PhoneAccountHandle
 import android.telephony.PhoneNumberUtils
+import com.accessible.dialer.settings.SettingsRepository
 
 /**
  * Plays the incoming-call ringtone and vibration. Because the manifest declares
@@ -30,7 +32,7 @@ class Ringer(private val context: Context) {
     private var vibrator: Vibrator? = null
     private var vibrating = false
 
-    fun start(callerNumber: String?) {
+    fun start(callerNumber: String?, accountHandle: PhoneAccountHandle? = null) {
         // Already playing — nothing to do. The system can re-deliver STATE_RINGING when
         // the call's details change, and we don't want to restart the tone every time.
         if (ringtone?.isPlaying == true || vibrating) return
@@ -39,7 +41,7 @@ class Ringer(private val context: Context) {
         val mode = am?.ringerMode ?: AudioManager.RINGER_MODE_NORMAL
 
         if (mode == AudioManager.RINGER_MODE_NORMAL) {
-            val uri = resolveRingtoneUri(callerNumber)
+            val uri = resolveRingtoneUri(callerNumber, accountHandle)
             val rt = RingtoneManager.getRingtone(context, uri)
             if (rt != null) {
                 rt.audioAttributes = AudioAttributes.Builder()
@@ -87,9 +89,14 @@ class Ringer(private val context: Context) {
 
     /**
      * Looks up the contact whose phone number matches [number] and returns their
-     * `CUSTOM_RINGTONE` URI if set; otherwise the system default ringtone.
+     * `CUSTOM_RINGTONE` URI if set; otherwise falls back to the user's per-SIM
+     * ringtone override (keyed by [accountHandle]) and finally the system default.
+     *
+     * Priority: contact CUSTOM_RINGTONE → per-SIM override → system default.
+     * Per-contact wins because the user explicitly chose a ringtone for *that*
+     * person; the SIM-level override is the next best signal of intent.
      */
-    private fun resolveRingtoneUri(number: String?): Uri {
+    private fun resolveRingtoneUri(number: String?, accountHandle: PhoneAccountHandle?): Uri {
         if (!number.isNullOrBlank()) {
             val custom = runCatching {
                 context.contentResolver.query(
@@ -114,6 +121,16 @@ class Ringer(private val context: Context) {
                 }
             }.getOrNull()
             if (!custom.isNullOrBlank()) return Uri.parse(custom)
+        }
+        // Per-SIM override: the user assigned a ringtone specifically to this calling
+        // account in Settings → Calling → Ringtone per SIM. Empty / unknown id falls
+        // through to the system default below.
+        val simId = accountHandle?.id
+        if (!simId.isNullOrBlank()) {
+            val simUri = SettingsRepository.simRingtones.value[simId]
+            if (!simUri.isNullOrBlank()) {
+                runCatching { return Uri.parse(simUri) }
+            }
         }
         return RingtoneManager.getActualDefaultRingtoneUri(
             context,

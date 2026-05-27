@@ -11,7 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +32,7 @@ fun FavoritesScreen(
     vm: ContactsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val contacts by vm.displayed.collectAsState()
+    val contacts by vm.displayed.collectAsStateWithLifecycle()
 
     LaunchedEffect(permissionsGranted) {
         if (permissionsGranted && DialerPermissions.granted(context, Manifest.permission.READ_CONTACTS)) {

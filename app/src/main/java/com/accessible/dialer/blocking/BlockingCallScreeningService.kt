@@ -3,6 +3,7 @@ package com.accessible.dialer.blocking
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import com.accessible.dialer.settings.SettingsRepository
+import com.accessible.dialer.util.RowActions
 
 /**
  * Automatically rejects incoming calls whose number is on our block list.
@@ -19,15 +20,24 @@ class BlockingCallScreeningService : CallScreeningService() {
         val blocked = number.isNotBlank() &&
             BlockedNumbersRepository.isBlocked(this, number)
 
+        // "Block unknown callers" — when enabled, every incoming call from a number
+        // that doesn't resolve to a saved contact is treated like a manual block.
+        // Number-blank (private / withheld) counts as unknown too, since the user
+        // can't possibly have it saved. We deliberately re-use BlockMode so the
+        // user only needs to choose the screening behaviour once.
+        val unknownBlocked = !blocked &&
+            SettingsRepository.blockUnknown.value &&
+            (number.isBlank() || RowActions.lookupContactId(this, number) == null)
+
         // Quiet hours: when active, count repeated attempts from the same number. If the
         // caller exceeds the configured threshold within a short rolling window we let
         // them through; otherwise the call is silently rejected.
-        val quietActive = !blocked && QuietHours.isQuietNow()
+        val quietActive = !blocked && !unknownBlocked && QuietHours.isQuietNow()
         val quietRejected = quietActive && number.isNotBlank() &&
             !QuietHours.shouldBypassQuiet(number)
 
         val response = when {
-            blocked -> {
+            blocked || unknownBlocked -> {
                 when (SettingsRepository.blockMode.value) {
                     SettingsRepository.BlockMode.SilentRing ->
                         // Caller hears normal ringing; my phone stays silent. After their

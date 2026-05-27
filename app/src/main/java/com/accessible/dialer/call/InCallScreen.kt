@@ -35,7 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,8 +77,8 @@ import android.os.SystemClock
  */
 @Composable
 fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
-    val state by OngoingCallHolder.state.collectAsState()
-    val audioState by OngoingCallHolder.audio.collectAsState()
+    val state by OngoingCallHolder.state.collectAsStateWithLifecycle()
+    val audioState by OngoingCallHolder.audio.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val muted = audioState.muted
     val speaker = audioState.speaker

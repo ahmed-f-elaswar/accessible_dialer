@@ -28,11 +28,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +47,7 @@ import com.accessible.dialer.ui.theme.AccessibleDialerTheme
 import com.accessible.dialer.util.DefaultDialer
 import com.accessible.dialer.util.DialerPermissions
 import com.accessible.dialer.util.PhoneAccounts
+import com.accessible.dialer.util.ShakeDetector
 
 class MainActivity : ComponentActivity() {
 
@@ -79,8 +80,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun AppRoot(initialNumber: String?, startOnContacts: Boolean, autoCall: Boolean) {
     val context = LocalContext.current
-    val themeMode by SettingsRepository.theme.collectAsState()
-    val textScale by SettingsRepository.textScale.collectAsState()
+    val themeMode by SettingsRepository.theme.collectAsStateWithLifecycle()
+    val textScale by SettingsRepository.textScale.collectAsStateWithLifecycle()
 
     AccessibleDialerTheme(themeMode = themeMode, textScale = textScale) {
         AppContent(
@@ -111,6 +112,38 @@ private fun AppContent(initialNumber: String?, startOnContacts: Boolean, autoCal
         }
         lifecycle.addObserver(obs)
         onDispose { lifecycle.removeObserver(obs) }
+    }
+
+    // Shake-to-call: when the user shakes the device while this Activity is
+    // foregrounded AND the feature is enabled AND a destination number is set, we
+    // place a call to that number. Bound to ON_RESUME / ON_PAUSE so the
+    // accelerometer is not kept hot when the app is in the background. The shake
+    // is ignored when the on-screen welcome gate is still up (permissions not
+    // granted or app is not the default dialer yet) to avoid surprise dials.
+    val shakeToCallEnabled by SettingsRepository.shakeToCallEnabled.collectAsStateWithLifecycle()
+    val shakeToCallNumber by SettingsRepository.shakeToCallNumber.collectAsStateWithLifecycle()
+    DisposableEffect(lifecycle, shakeToCallEnabled, shakeToCallNumber, permissionsGranted) {
+        if (!shakeToCallEnabled || shakeToCallNumber.isBlank() || !permissionsGranted) {
+            return@DisposableEffect onDispose { }
+        }
+        val detector = ShakeDetector(onShake = {
+            placeCall(context, shakeToCallNumber)
+        })
+        val obs = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> detector.start(context)
+                Lifecycle.Event.ON_PAUSE -> detector.stop()
+                else -> {}
+            }
+        }
+        lifecycle.addObserver(obs)
+        // Activity is already resumed here (compose effects run after ON_RESUME), so
+        // kick the detector now — the observer only catches *subsequent* transitions.
+        detector.start(context)
+        onDispose {
+            lifecycle.removeObserver(obs)
+            detector.stop()
+        }
     }
 
     val permLauncher = rememberLauncherForActivityResult(

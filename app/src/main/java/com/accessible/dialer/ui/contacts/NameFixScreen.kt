@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AssistChip
@@ -443,7 +443,7 @@ internal fun NameFixScreen(onBack: () -> Unit) {
                         onClick = onBack,
                         modifier = Modifier.semantics { contentDescription = backLabel },
                     ) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = backLabel)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backLabel)
                     }
                 },
                 actions = {

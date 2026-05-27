@@ -26,7 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Call
@@ -63,7 +63,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -365,7 +365,7 @@ internal fun ContactDetailsScreen(
                         onClick = onBack,
                         modifier = Modifier.semantics { contentDescription = backLabel },
                     ) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = backLabel)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backLabel)
                     }
                 },
                 actions = {
@@ -772,7 +772,7 @@ private fun MergeContactPickerDialog(
     val context = LocalContext.current
     val vm: ContactsViewModel = viewModel(key = "merge_picker_$currentContactId")
     LaunchedEffect(Unit) { vm.load(context) }
-    val displayed by vm.displayed.collectAsState()
+    val displayed by vm.displayed.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
     val filtered = remember(displayed, query, currentContactId) {
         val q = query.trim()
@@ -795,7 +795,7 @@ private fun MergeContactPickerDialog(
                     title = { Text(stringResource(R.string.merge_picker_title)) },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                         }
                     },
                 )
@@ -942,7 +942,7 @@ private fun QrCodeDialog(title: String, payload: String?, onClose: () -> Unit) {
                             contentDescription = closeLabel
                             role = Role.Button
                         },
-                    ) { Icon(Icons.Filled.ArrowBack, contentDescription = null) }
+                    ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
                 }
                 Spacer(Modifier.size(16.dp))
                 if (bitmap != null) {

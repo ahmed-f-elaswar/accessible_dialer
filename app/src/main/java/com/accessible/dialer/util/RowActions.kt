@@ -61,6 +61,26 @@ object RowActions {
     }
 
     /**
+     * Like [lookupContactId] but returns the contact's display name (or null when
+     * no contact matches / lookup fails). Used by callers that want a friendly
+     * announcement of "calling <name>" without doing two queries.
+     */
+    fun lookupContactName(context: Context, number: String): String? {
+        if (number.isBlank()) return null
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(number),
+        )
+        return runCatching {
+            context.contentResolver.query(
+                uri,
+                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+                null, null, null,
+            )?.use { c -> if (c.moveToFirst()) c.getString(0)?.takeIf { it.isNotBlank() } else null }
+        }.getOrNull()
+    }
+
+    /**
      * Delete the aggregated contact identified by [contactId]. This removes every
      * RawContact under that aggregate (Contacts.CONTENT_URI honors the delete cascade
      * via the contacts provider) so the person disappears from every list. Returns

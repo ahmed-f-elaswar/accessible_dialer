@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.History
@@ -41,6 +41,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -109,14 +110,36 @@ fun DialerApp(
     var detailsContactId by rememberSaveable { mutableStateOf<Long?>(null) }
     // null = closed; 0 = new; >0 = edit existing aggregated contact.
     var editorContactId by rememberSaveable { mutableStateOf<Long?>(null) }
+    // When opening the editor as "new contact" (editorContactId == 0L) from the
+    // Recents "Save as new contact" action, this holds the phone number to
+    // prefill into the first phone slot. Cleared along with editorContactId.
+    var editorPrefillNumber by rememberSaveable { mutableStateOf<String?>(null) }
     // Full-screen duplicate-detection wizard opened from Settings → Tools.
     var showDuplicates by rememberSaveable { mutableStateOf(false) }
     var showNameFix by rememberSaveable { mutableStateOf(false) }
     // Spelling-variant normalizer (Mohamed / Mohammad / Mahamed → one canonical).
     var showNameNormalize by rememberSaveable { mutableStateOf(false) }
     var showBlocked by rememberSaveable { mutableStateOf(false) }
+    // Settings → Tools → "Where contacts are stored": full-screen account list +
+    // per-account contact picker with bulk delete / move.
+    var showStorage by rememberSaveable { mutableStateOf(false) }
     // Bumped on save to force ContactsScreen to reload.
     var contactsReloadKey by rememberSaveable { mutableStateOf(0) }
+    // Settings → Help → User guide: full-screen scrollable help content.
+    var showUserGuide by rememberSaveable { mutableStateOf(false) }
+    // Bumped after "Clear all call history" so RecentsScreen reloads and shows
+    // the now-empty log without waiting for a tab switch.
+    var recentsReloadKey by rememberSaveable { mutableStateOf(0) }
+    // Toggled by the overflow menu's "Clear all call history" item; renders a
+    // destructive confirmation dialog before any rows are deleted.
+    var showClearHistoryConfirm by remember { mutableStateOf(false) }
+    // Two-stage "Save unknown caller" flow:
+    //   1. saveContactChoiceNumber non-null → show "New contact / Add to existing" chooser
+    //   2. addNumberToExistingFor non-null → show contact picker; on pick open editor
+    // Each stage is a separate state var so dismissing one doesn't leave the other
+    // hanging. Number is normalized only at the final call site (ContactEditor).
+    var saveContactChoiceNumber by rememberSaveable { mutableStateOf<String?>(null) }
+    var addNumberToExistingFor by rememberSaveable { mutableStateOf<String?>(null) }
 
     val goDialWith: (String) -> Unit = { number ->
         dialpadNumber = number
@@ -134,18 +157,32 @@ fun DialerApp(
     // and we want the editor to take over the viewport.
     if (editorContactId != null) {
         val id = editorContactId!!
-        androidx.activity.compose.BackHandler { editorContactId = null }
+        val prefill = editorPrefillNumber
+        androidx.activity.compose.BackHandler {
+            editorContactId = null
+            editorPrefillNumber = null
+        }
         com.accessible.dialer.ui.contacts.ContactEditorScreen(
             contactId = id,
-            onBack = { editorContactId = null },
+            onBack = {
+                editorContactId = null
+                editorPrefillNumber = null
+            },
             onSaved = { savedId ->
                 editorContactId = null
+                editorPrefillNumber = null
                 contactsReloadKey += 1
+                // Recents shows the contact's display name resolved from the
+                // CallLog cache, which the system refreshes lazily. Force the
+                // Recents tab to re-query so a freshly-saved or freshly-renamed
+                // contact appears in history immediately.
+                recentsReloadKey += 1
                 if (id > 0L) {
                     // Came from details — stay on details so the user sees updates.
                     detailsContactId = savedId
                 }
             },
+            prefillNumber = prefill,
         )
         return
     }
@@ -207,6 +244,98 @@ fun DialerApp(
         return
     }
 
+    if (showStorage) {
+        androidx.activity.compose.BackHandler { showStorage = false }
+        com.accessible.dialer.ui.storage.StorageLocationsScreen(
+            onBack = {
+                showStorage = false
+                // Moves / deletes from this screen change which accounts own
+                // which contacts — force the Contacts tab to re-query so the
+                // filter dropdown and aggregated list match reality.
+                contactsReloadKey += 1
+            },
+        )
+        return
+    }
+
+    if (showUserGuide) {
+        androidx.activity.compose.BackHandler { showUserGuide = false }
+        com.accessible.dialer.ui.help.UserGuideScreen(
+            onBack = { showUserGuide = false },
+        )
+        return
+    }
+
+    val clearHistoryContext = LocalContext.current
+    if (showClearHistoryConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryConfirm = false },
+            title = { Text(stringResource(R.string.clear_all_history_title)) },
+            text = { Text(stringResource(R.string.clear_all_history_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showClearHistoryConfirm = false
+                    val deleted = com.accessible.dialer.util.ContactOps
+                        .eraseAllCallHistory(clearHistoryContext)
+                    val msg = if (deleted >= 0) {
+                        clearHistoryContext.getString(R.string.clear_all_history_done, deleted)
+                    } else {
+                        clearHistoryContext.getString(R.string.clear_all_history_failed)
+                    }
+                    android.widget.Toast.makeText(
+                        clearHistoryContext, msg, android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    // Force RecentsScreen to re-query the (now-empty) call log.
+                    recentsReloadKey += 1
+                }) { Text(stringResource(R.string.clear_all_history_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    // Stage 1 of the "Save unknown caller" flow: ask whether to create a new contact
+    // or append the number to an existing one. Each button sets the next state var
+    // and clears this one so the dialogs daisy-chain without overlapping.
+    saveContactChoiceNumber?.let { pendingNumber ->
+        AlertDialog(
+            onDismissRequest = { saveContactChoiceNumber = null },
+            title = { Text(stringResource(R.string.save_contact_choice_title)) },
+            text = { Text(stringResource(R.string.save_contact_choice_message, pendingNumber)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    saveContactChoiceNumber = null
+                    editorPrefillNumber = pendingNumber
+                    editorContactId = 0L
+                }) { Text(stringResource(R.string.save_contact_choice_new)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    saveContactChoiceNumber = null
+                    addNumberToExistingFor = pendingNumber
+                }) { Text(stringResource(R.string.save_contact_choice_existing)) }
+            },
+        )
+    }
+
+    // Stage 2: contact picker. On pick, open the editor for that contact with the
+    // number queued as a fresh phone row (ContactEditorScreen handles the append).
+    addNumberToExistingFor?.let { pendingNumber ->
+        com.accessible.dialer.ui.contacts.ContactPickerDialog(
+            title = stringResource(R.string.save_contact_picker_title),
+            onDismiss = { addNumberToExistingFor = null },
+            onPick = { contact ->
+                addNumberToExistingFor = null
+                editorPrefillNumber = pendingNumber
+                editorContactId = contact.id
+            },
+            viewModelKey = "save_unknown_picker",
+        )
+    }
+
     Scaffold(
         topBar = {
             if (showSettings) {
@@ -217,7 +346,7 @@ fun DialerApp(
                             onClick = { showSettings = false },
                             modifier = Modifier.semantics { contentDescription = backLabel },
                         ) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = backLabel)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backLabel)
                         }
                     },
                 )
@@ -281,6 +410,22 @@ fun DialerApp(
                                     showSettings = true
                                 },
                             )
+                            // "Clear all call history" only makes sense while the user is
+                            // viewing the Recents tab — outside that context the action
+                            // is hidden to avoid an unexpected destructive option in an
+                            // unrelated screen (Dialpad, Contacts, Favorites, Settings).
+                            if (!showSettings && currentTab == Tab.Recents) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.action_clear_all_history)) },
+                                    leadingIcon = {
+                                        Icon(Icons.Filled.DeleteSweep, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        menuExpanded = false
+                                        showClearHistoryConfirm = true
+                                    },
+                                )
+                            }
                         }
                     }
                     Tab.values().forEach { tab ->
@@ -322,15 +467,18 @@ fun DialerApp(
                 if (showSettings) {
                     SettingsScreen(
                         onOpenDuplicates = { showDuplicates = true },
+                        onOpenStorage = { showStorage = true },
                         onOpenNameFix = { showNameFix = true },
                         onOpenNameNormalize = { showNameNormalize = true },
                         onOpenBlocked = { showBlocked = true },
+                        onOpenUserGuide = { showUserGuide = true },
                     )
                 } else when (currentTab) {
                     Tab.Dialpad -> DialpadScreen(
                         number = dialpadNumber,
                         onNumberChange = { dialpadNumber = it },
                         onCall = { onPlaceCall(dialpadNumber) },
+                        onCallNumber = onPlaceCall,
                         permissionsGranted = permissionsGranted,
                     )
                     Tab.Recents -> RecentsScreen(
@@ -338,6 +486,14 @@ fun DialerApp(
                         onCallNumber = onPlaceCall,
                         onShowInDialpad = goDialWith,
                         onOpenContactDetails = { detailsContactId = it },
+                        onSaveAsContact = { number ->
+                            // Open the new/existing chooser instead of going straight
+                            // to a new-contact editor. The user picks intent here;
+                            // either branch ends up in ContactEditorScreen with
+                            // [editorPrefillNumber] set.
+                            saveContactChoiceNumber = number
+                        },
+                        reloadKey = recentsReloadKey,
                     )
                     Tab.Contacts -> ContactsScreen(
                         permissionsGranted = permissionsGranted,

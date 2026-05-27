@@ -1,7 +1,9 @@
 package com.accessible.dialer.ui.recents
 
 import android.content.Context
+import android.net.Uri
 import android.provider.CallLog
+import android.provider.ContactsContract
 import android.telephony.PhoneNumberUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -39,6 +41,22 @@ class RecentsViewModel : ViewModel() {
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading
 
+    // LRU cache for PhoneLookup results, keyed by the raw call-log number string.
+    // Avoids re-issuing one ContentResolver.query per number on every page load:
+    // before this cache, scrolling 200 entries with mostly-stable contacts could
+    // burn ~200 queries every page. We cap at 1024 entries (well over any real
+    // recents list) and use access-order so frequently-shown numbers stay hot.
+    // Stored value can be empty string — that means "PhoneLookup returned no
+    // contact for this number" — so we can short-circuit unknowns too.
+    // Cleared on every fresh load() because the user may have just added or
+    // renamed a contact since the last call-log render.
+    private val phoneLookupCache: MutableMap<String, String> =
+        object : LinkedHashMap<String, String>(128, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, String>?,
+            ): Boolean = size > 1024
+        }
+
     fun load(context: Context) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -60,6 +78,24 @@ class RecentsViewModel : ViewModel() {
         rawOffset = 0
         _endReached.value = false
         _entries.value = emptyList()
+        // Drop stale name lookups so a freshly-added contact appears on reload.
+        phoneLookupCache.clear()
+    }
+
+    /**
+     * Remove the entries whose ids are in [ids] from the current in-memory list
+     * without re-querying the system call log. Also clears their dedupe keys from
+     * [seen] so subsequent paginations can re-surface the contact if a new call
+     * comes in. Used by deletion actions so the LazyColumn keeps its scroll
+     * position instead of snapping to the top after a delete.
+     */
+    private fun removeEntriesByIds(ids: Set<Long>) {
+        if (ids.isEmpty()) return
+        val current = _entries.value
+        val removed = current.filter { it.id in ids }
+        if (removed.isEmpty()) return
+        removed.forEach { seen.remove(dedupeKey(it)) }
+        _entries.value = current.filterNot { it.id in ids }
     }
 
     /**
@@ -79,8 +115,11 @@ class RecentsViewModel : ViewModel() {
                         arrayOf(id.toString()),
                     )
                 }
-                resetPaging()
-                fetchNextPage(context)
+                // Drop the row from the in-memory list in place. We deliberately
+                // avoid resetPaging()+fetch here: replacing _entries with a fresh
+                // list causes LazyColumn to discard every item and snap scroll
+                // back to the top, which is what the user was complaining about.
+                removeEntriesByIds(setOf(id))
             }
         }
     }
@@ -141,11 +180,14 @@ class RecentsViewModel : ViewModel() {
                                 ids.map { it.toString() }.toTypedArray(),
                             )
                         }
+                        // Surface the deletion in the in-memory list without
+                        // tearing the LazyColumn down (see deleteEntry comment).
+                        // Any of the deleted IDs that happen to currently be the
+                        // representative row will be removed below.
+                        removeEntriesByIds(ids.toSet())
                         Unit
                     }
                 }
-                resetPaging()
-                fetchNextPage(context)
             }
         }
     }
@@ -204,11 +246,28 @@ class RecentsViewModel : ViewModel() {
             rawOffset += rowsThisPage
             if (rowsThisPage < PAGE_SIZE) _endReached.value = true
 
+            // CACHED_NAME is what the system caches into the call log at the
+            // moment each call ended; it does NOT update when the user later
+            // edits or creates a contact. We overlay it with a live
+            // PhoneLookup pass so a freshly-saved contact's name appears in
+            // Recents immediately (the primary user complaint). Per-page, not
+            // per-row, so we run at most one query per distinct number.
+            val freshNames = livePhoneLookupNames(
+                context,
+                pageRaw.mapTo(LinkedHashSet()) { it.number }
+                    .filter { it.isNotBlank() },
+                phoneLookupCache,
+            )
+            val overlaid = pageRaw.map { e ->
+                val fresh = freshNames[e.number]
+                if (!fresh.isNullOrBlank()) e.copy(displayName = fresh) else e
+            }
+
             // Dedupe this page against everything we've already published. The cursor is
             // DESC by DATE, so the first occurrence of any number wins — matches the
             // pre-pagination semantics (each contact shown by their most recent call).
-            val appended = ArrayList<CallLogEntry>(pageRaw.size)
-            for (e in pageRaw) {
+            val appended = ArrayList<CallLogEntry>(overlaid.size)
+            for (e in overlaid) {
                 if (seen.add(dedupeKey(e))) appended += e
             }
             if (appended.isNotEmpty()) {
@@ -247,4 +306,54 @@ class RecentsViewModel : ViewModel() {
         // trip to the call-log provider on every scroll tick.
         private const val PAGE_SIZE = 500
     }
+}
+
+/**
+ * Resolve a fresh display-name for each input number via [ContactsContract.PhoneLookup].
+ * Returns a map keyed by the *input* number string (not by any normalized form) so
+ * callers can do `freshNames[entry.number]` without re-normalizing. Numbers with no
+ * contact are absent from the map (NOT mapped to null) so callers can use a single
+ * `if (!result.isNullOrBlank())` guard.
+ *
+ * PhoneLookup is the right API here (vs. PhoneNumberUtils.compare against
+ * Phone.NUMBER): it understands country-code variants, lets the platform pick the
+ * best match for the user's locale, and only requires READ_CONTACTS.
+ */
+private fun livePhoneLookupNames(
+    context: Context,
+    numbers: Collection<String>,
+    cache: MutableMap<String, String>,
+): Map<String, String> {
+    if (numbers.isEmpty()) return emptyMap()
+    val out = HashMap<String, String>(numbers.size)
+    val cr = context.contentResolver
+    for (number in numbers) {
+        // Cache hit: skip the query. Empty-string sentinel means "known to have
+        // no contact" — not added to `out` so callers fall back to CACHED_NAME.
+        val cached = cache[number]
+        if (cached != null) {
+            if (cached.isNotEmpty()) out[number] = cached
+            continue
+        }
+        val uri = Uri.withAppendedPath(
+            ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+            Uri.encode(number),
+        )
+        var resolved = ""
+        runCatching {
+            cr.query(
+                uri,
+                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+                null, null, null,
+            )?.use { c ->
+                if (c.moveToFirst()) {
+                    val name = c.getString(0)
+                    if (!name.isNullOrBlank()) resolved = name
+                }
+            }
+        }
+        cache[number] = resolved
+        if (resolved.isNotEmpty()) out[number] = resolved
+    }
+    return out
 }

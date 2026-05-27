@@ -1,0 +1,183 @@
+<resources>
+    <string name="app_name">Marcador accesible</string>
+
+    <string name="tab_dialpad">Teclado</string>
+    <string name="tab_recents">Llamadas recientes</string>
+    <string name="tab_contacts">Contactos</string>
+    <string name="tab_favorites">Favoritos</string>
+    <string name="tab_settings">Ajustes</string>
+
+    <string name="dialpad_enter_number">Introduce un número</string>
+    <string name="dialpad_call">Llamar</string>
+    <string name="dialpad_backspace">Borrar</string>
+    <string name="dialpad_clear_all">Borrar todos los dígitos</string>
+    <string name="key_0_plus_action">Insertar el signo más</string>
+    <string name="dialpad_long_press_zero">Mantén pulsado para el signo más</string>
+    <string name="key_star_desc">Asterisco</string>
+    <string name="key_pound_desc">Almohadilla</string>
+    <string name="dialpad_digit_deleted">%1$s borrado</string>
+    <string name="dialpad_cleared">Número borrado</string>
+
+    <string name="perm_required_title">Permisos necesarios</string>
+    <string name="perm_required_message">Esta aplicación necesita acceso al teléfono, contactos y registro de llamadas para funcionar.</string>
+    <string name="perm_grant">Conceder permisos</string>
+    <string name="perm_open_settings">Abrir ajustes</string>
+
+    <string name="default_dialer_banner">Establece esta aplicación como tu teléfono predeterminado para hacer y recibir llamadas.</string>
+    <string name="default_dialer_action">Establecer como predeterminado</string>
+
+    <string name="call_incoming">Llamada entrante</string>
+    <string name="call_outgoing">Llamando…</string>
+    <string name="call_active">En llamada</string>
+    <string name="call_ended">Llamada finalizada</string>
+    <string name="call_answer">Contestar</string>
+    <string name="call_decline">Rechazar</string>
+    <string name="call_hangup">Colgar</string>
+    <string name="call_mute">Silenciar</string>
+    <string name="call_unmute">Activar micrófono</string>
+    <string name="call_speaker">Altavoz</string>
+    <string name="call_keypad">Teclado</string>
+    <string name="call_hold">En espera</string>
+    <string name="call_resume">Reanudar</string>
+    <string name="call_reply_message">Responder con mensaje</string>
+    <string name="call_reply_title">Responder con…</string>
+    <string name="call_reply_cancel">Cancelar</string>
+    <string name="call_reply_preset_1">No puedo hablar ahora, te devuelvo la llamada.</string>
+    <string name="call_reply_preset_2">Voy de camino.</string>
+    <string name="call_reply_preset_3">Te llamo más tarde.</string>
+    <string name="call_reply_preset_4">¿Qué pasa?</string>
+    <string name="call_unknown">Número desconocido</string>
+    <string name="call_duration">Duración %1$s</string>
+    <string name="call_via_account">Vía %1$s</string>
+    <string name="call_speaker_on">Altavoz activado</string>
+    <string name="call_speaker_off">Altavoz desactivado</string>
+    <string name="call_mute_on">Micrófono silenciado</string>
+    <string name="call_mute_off">Micrófono activado</string>
+    <string name="call_add">Añadir llamada</string>
+    <string name="call_keypad_close">Cerrar teclado</string>
+
+    <string name="recents_empty">No hay llamadas recientes</string>
+    <string name="recents_incoming">Entrante</string>
+    <string name="recents_outgoing">Saliente</string>
+    <string name="recents_missed">Perdida</string>
+    <string name="recents_rejected">Rechazada</string>
+    <string name="recents_call_back">Llamar a %1$s</string>
+    <string name="recents_call_generic">Llamar</string>
+    <string name="recents_load_more">Cargar llamadas antiguas</string>
+    <string name="recents_loading_more">Cargando…</string>
+    <string name="recents_section_today">Hoy</string>
+    <string name="recents_section_yesterday">Ayer</string>
+    <string name="recents_section_this_week">Esta semana</string>
+    <string name="recents_section_earlier">Anteriores</string>
+
+    <string name="contacts_empty">No hay contactos</string>
+    <string name="contacts_search">Buscar</string>
+    <string name="contacts_call">Llamar a %1$s</string>
+    <string name="contacts_favorite_indicator">Favorito</string>
+    <string name="favorites_empty">No hay contactos favoritos</string>
+    <string name="contacts_new">Nuevo contacto</string>
+    <string name="action_edit_contact">Editar contacto</string>
+    <string name="action_delete_contact">Eliminar contacto</string>
+    <string name="action_share_contact">Compartir contacto</string>
+    <string name="action_block_number">Bloquear número</string>
+    <string name="action_add_favorite">Añadir a favoritos</string>
+    <string name="action_remove_favorite">Quitar de favoritos</string>
+    <string name="action_send_message">Enviar mensaje</string>
+    <string name="action_copy_number">Copiar número</string>
+    <string name="number_copied">Número copiado</string>
+    <string name="more_options">Más opciones</string>
+    <string name="action_back">Atrás</string>
+    <string name="action_apply">Aplicar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="action_save_as_contact">Guardar como nuevo contacto</string>
+
+    <string name="settings_section_display">Pantalla</string>
+    <string name="settings_section_contacts">Contactos</string>
+    <string name="settings_section_calling">Llamadas</string>
+    <string name="settings_section_accessibility">Accesibilidad</string>
+    <string name="settings_section_tools">Herramientas</string>
+    <string name="settings_section_quiet">Horas tranquilas</string>
+    <string name="settings_section_porting">Copia y transferencia</string>
+    <string name="settings_section_about">Acerca de</string>
+    <string name="settings_section_shake">Gestos de agitación</string>
+
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Seguir al sistema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Oscuro</string>
+    <string name="settings_text_size">Tamaño de texto</string>
+    <string name="settings_text_small">Pequeño</string>
+    <string name="settings_text_default">Predeterminado</string>
+    <string name="settings_text_large">Grande</string>
+    <string name="settings_text_xlarge">Muy grande</string>
+    <string name="settings_haptic">Vibrar al pulsar</string>
+    <string name="settings_haptic_sub">Vibración breve al pulsar una tecla del teclado</string>
+    <string name="settings_verbose_digits">Anuncio detallado del número</string>
+
+    <string name="save_contact_choice_title">Guardar número</string>
+    <string name="save_contact_choice_message">Añadir %1$s a tus contactos:</string>
+    <string name="save_contact_choice_new">Crear nuevo contacto</string>
+    <string name="save_contact_choice_existing">Añadir a un contacto existente</string>
+    <string name="save_contact_picker_title">Elige un contacto</string>
+
+    <string name="settings_speed_dial">Marcación rápida</string>
+    <string name="settings_speed_dial_sub">Mantén pulsado un dígito del teclado para llamar a un contacto</string>
+    <string name="settings_speed_dial_slot_label">Dígito %1$d</string>
+    <string name="settings_speed_dial_slot_empty">Ninguno</string>
+    <string name="settings_speed_dial_clear">Borrar marcación rápida</string>
+    <string name="settings_speed_dial_picker_title">Elige un contacto para %1$d</string>
+    <string name="speed_dial_no_binding">Sin marcación rápida para %1$d</string>
+    <string name="speed_dial_calling">Marcación rápida: llamando a %1$s</string>
+
+    <string name="settings_shake_to_call">Agitar para llamar</string>
+    <string name="settings_shake_to_call_sub">Agita el teléfono para llamar a tu contacto elegido</string>
+    <string name="settings_shake_to_call_pick">Elegir contacto al que llamar</string>
+    <string name="settings_shake_to_call_none">Sin contacto elegido</string>
+    <string name="settings_shake_to_call_picker_title">Elige el contacto al que llamar agitando</string>
+    <string name="settings_shake_to_answer">Agitar para contestar</string>
+    <string name="settings_shake_to_answer_sub">Agita el teléfono para contestar cuando suena</string>
+
+    <!-- User guide -->
+    <string name="settings_section_help">Ayuda</string>
+    <string name="settings_user_guide">Guía del usuario</string>
+    <string name="settings_user_guide_sub">Cómo usar Accessible Dialer</string>
+    <string name="user_guide_title">Guía del usuario</string>
+    <string name="user_guide_intro">Un recorrido rápido por cada pantalla y herramienta. Toca una sección para leer más.</string>
+
+    <string name="user_guide_section_getting_started">Primeros pasos</string>
+    <string name="user_guide_body_getting_started">Cuando se te pida, establece Accessible Dialer como tu aplicación de teléfono predeterminada para que pueda realizar y recibir llamadas. Concede los permisos de Contactos, Registro de llamadas y Teléfono cuando se soliciten. Puedes cambiar el tema y el tamaño del texto en cualquier momento desde Ajustes → Pantalla.</string>
+
+    <string name="user_guide_section_dialpad">Teclado</string>
+    <string name="user_guide_body_dialpad">Toca los dígitos para introducir un número y luego pulsa el botón verde de llamada. Mantén pulsado el 0 para escribir el símbolo “+” en números internacionales. La tecla de retroceso borra un dígito; mantenla pulsada para borrarlo todo. Las marcaciones rápidas del 1 al 9 se pueden asignar en Ajustes → Llamadas.</string>
+
+    <string name="user_guide_section_favorites">Favoritos</string>
+    <string name="user_guide_body_favorites">Los contactos marcados con estrella aparecen aquí como mosaicos grandes para llamar con un solo toque. Abre los detalles de un contacto y toca el icono de estrella para añadirlo o quitarlo de Favoritos.</string>
+
+    <string name="user_guide_section_contacts">Contactos</string>
+    <string name="user_guide_body_contacts">Explora la lista completa de contactos, busca por nombre o número, o toca el micrófono para buscar por voz. El botón “+” abre el editor para crear un contacto nuevo. Toca cualquier contacto para abrir los detalles con acciones de llamar, editar, compartir y eliminar. Usa el filtro para mostrar solo los contactos de una cuenta concreta.</string>
+
+    <string name="user_guide_section_recents">Recientes</string>
+    <string name="user_guide_body_recents">Tu historial de llamadas entrantes, salientes y perdidas. Toca una fila para ver opciones o mantenla pulsada para más. Los números desconocidos se pueden guardar como contacto nuevo o añadir a uno existente. Usa el menú de opciones adicionales para borrar todo el historial.</string>
+
+    <string name="user_guide_section_in_call">Durante una llamada</string>
+    <string name="user_guide_body_in_call">Botones grandes te permiten silenciar, cambiar a altavoz, poner en espera, abrir el teclado para enviar tonos o terminar la llamada. La pantalla permanece encendida mientras la llamada está activa para que los controles sigan accesibles.</string>
+
+    <string name="user_guide_section_blocking">Bloqueo y horario silencioso</string>
+    <string name="user_guide_body_blocking">Bloquea números individuales en Ajustes → Herramientas → Números bloqueados, o activa “Bloquear llamadas desconocidas” para rechazar a quien no esté en tus contactos. El horario silencioso rechaza sin sonido las llamadas de baja prioridad durante el periodo que elijas.</string>
+
+    <string name="user_guide_section_duplicates">Buscar duplicados</string>
+    <string name="user_guide_body_duplicates">Analiza tus contactos en busca de duplicados por nombre o número de teléfono. Revisa cada coincidencia y combínalos con un solo toque; las entradas originales se unen en un único contacto y no se pierde nada.</string>
+
+    <string name="user_guide_section_storage">Ubicaciones de almacenamiento</string>
+    <string name="user_guide_body_storage">Muestra en qué cuenta (Google, SIM o teléfono) reside cada contacto. Desde aquí puedes mover en bloque contactos a otra cuenta o eliminar de una sola vez todos los contactos de una cuenta concreta.</string>
+
+    <string name="user_guide_section_name_tools">Arreglar y normalizar nombres</string>
+    <string name="user_guide_body_name_tools">Arreglar nombres corrige problemas de formato, como nombres y apellidos intercambiados o espacios sobrantes. Normalizar nombres unifica variantes ortográficas del mismo nombre (por ejemplo Mohamed, Mohammad, Mahamed) en una única forma canónica en todos tus contactos.</string>
+
+    <string name="user_guide_section_import_export">Importar y exportar</string>
+    <string name="user_guide_body_import_export">Usa Ajustes → Herramientas → Importar contactos para leer un archivo ‎.vcf, o Exportar para guardar tus contactos como ‎.vcf o ‎.csv y hacer copia de seguridad o transferirlos a otro dispositivo.</string>
+
+    <string name="user_guide_section_accessibility">Accesibilidad</string>
+    <string name="user_guide_body_accessibility">Aumenta el tamaño del texto en Ajustes → Pantalla. En Ajustes → Accesibilidad puedes activar la respuesta háptica para las teclas del teclado, el anuncio detallado de dígitos y contestar con sacudida cuando entra una llamada. Todas las pantallas están totalmente etiquetadas para TalkBack.</string>
+</resources>

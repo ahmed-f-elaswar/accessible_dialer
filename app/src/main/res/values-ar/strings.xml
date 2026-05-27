@@ -1,0 +1,194 @@
+<resources>
+    <string name="app_name">الهاتف السهل</string>
+
+    <!-- Navigation tabs -->
+    <string name="tab_dialpad">لوحة الأرقام</string>
+    <string name="tab_recents">المكالمات الأخيرة</string>
+    <string name="tab_contacts">جهات الاتصال</string>
+    <string name="tab_favorites">المفضلة</string>
+    <string name="tab_settings">الإعدادات</string>
+
+    <!-- Dialpad -->
+    <string name="dialpad_enter_number">أدخل رقم الهاتف</string>
+    <string name="dialpad_call">اتصال</string>
+    <string name="dialpad_backspace">حذف</string>
+    <string name="dialpad_clear_all">مسح كل الأرقام</string>
+    <string name="key_0_plus_action">إدراج علامة الجمع</string>
+    <string name="dialpad_long_press_zero">اضغط مطولاً لإدراج علامة الجمع</string>
+    <string name="key_star_desc">نجمة</string>
+    <string name="key_pound_desc">مربع</string>
+    <string name="dialpad_digit_deleted">تم حذف %1$s</string>
+    <string name="dialpad_cleared">تم مسح الرقم</string>
+
+    <!-- Permissions -->
+    <string name="perm_required_title">مطلوب أذونات</string>
+    <string name="perm_required_message">يحتاج هذا التطبيق إلى أذونات الهاتف وجهات الاتصال وسجل المكالمات للعمل كتطبيق الاتصال الخاص بك.</string>
+    <string name="perm_grant">منح الأذونات</string>
+    <string name="perm_open_settings">فتح الإعدادات</string>
+
+    <!-- Default dialer -->
+    <string name="default_dialer_banner">اجعل تطبيق الاتصال هذا تطبيق الهاتف الافتراضي لإجراء المكالمات وتلقيها.</string>
+    <string name="default_dialer_action">تعيين كافتراضي</string>
+
+    <!-- In-call -->
+    <string name="call_incoming">مكالمة واردة</string>
+    <string name="call_outgoing">جاري الاتصال…</string>
+    <string name="call_active">في مكالمة</string>
+    <string name="call_ended">انتهت المكالمة</string>
+    <string name="call_answer">رد</string>
+    <string name="call_decline">رفض</string>
+    <string name="call_hangup">إنهاء المكالمة</string>
+    <string name="call_mute">كتم</string>
+    <string name="call_unmute">إلغاء الكتم</string>
+    <string name="call_speaker">مكبر الصوت</string>
+    <string name="call_keypad">لوحة الأرقام</string>
+    <string name="call_hold">تعليق</string>
+    <string name="call_resume">استئناف</string>
+    <string name="call_reply_message">الرد برسالة</string>
+    <string name="call_reply_title">الرد بـ…</string>
+    <string name="call_reply_cancel">إلغاء</string>
+    <string name="call_reply_preset_1">لا أستطيع التحدث الآن، سأعاود الاتصال.</string>
+    <string name="call_reply_preset_2">في الطريق.</string>
+    <string name="call_reply_preset_3">سأتصل بك لاحقاً.</string>
+    <string name="call_reply_preset_4">ما الأمر؟</string>
+    <string name="call_unknown">رقم غير معروف</string>
+    <string name="call_duration">المدة %1$s</string>
+    <string name="call_via_account">عبر %1$s</string>
+    <string name="call_speaker_on">مكبر الصوت مفعّل</string>
+    <string name="call_speaker_off">مكبر الصوت متوقف</string>
+    <string name="call_mute_on">الميكروفون مكتوم</string>
+    <string name="call_mute_off">الميكروفون مفعّل</string>
+    <string name="call_add">إضافة مكالمة</string>
+    <string name="call_keypad_close">إغلاق لوحة الأرقام</string>
+
+    <!-- Recents -->
+    <string name="recents_empty">لا توجد مكالمات حديثة</string>
+    <string name="recents_incoming">واردة</string>
+    <string name="recents_outgoing">صادرة</string>
+    <string name="recents_missed">فائتة</string>
+    <string name="recents_rejected">مرفوضة</string>
+    <string name="recents_call_back">اتصال %1$s</string>
+    <string name="recents_call_generic">اتصال</string>
+    <string name="recents_load_more">تحميل مكالمات أقدم</string>
+    <string name="recents_loading_more">جاري تحميل المكالمات الأقدم…</string>
+    <string name="recents_section_today">اليوم</string>
+    <string name="recents_section_yesterday">أمس</string>
+    <string name="recents_section_this_week">هذا الأسبوع</string>
+    <string name="recents_section_earlier">سابقاً</string>
+
+    <!-- Contacts -->
+    <string name="contacts_empty">لا توجد جهات اتصال</string>
+    <string name="contacts_search">البحث في جهات الاتصال</string>
+    <string name="contacts_call">اتصال %1$s</string>
+    <string name="contacts_favorite_indicator">مفضل</string>
+    <string name="favorites_empty">لا توجد جهات اتصال مفضلة</string>
+    <string name="contacts_new">جهة اتصال جديدة</string>
+    <string name="action_edit_contact">تعديل جهة الاتصال</string>
+    <string name="action_delete_contact">حذف جهة الاتصال</string>
+    <string name="action_share_contact">مشاركة جهة الاتصال</string>
+    <string name="action_block_number">حظر الرقم</string>
+    <string name="action_add_favorite">إضافة إلى المفضلة</string>
+    <string name="action_remove_favorite">إزالة من المفضلة</string>
+    <string name="action_send_message">إرسال رسالة</string>
+    <string name="action_copy_number">نسخ الرقم</string>
+    <string name="number_copied">تم نسخ الرقم</string>
+    <string name="more_options">خيارات إضافية</string>
+    <string name="action_back">رجوع</string>
+    <string name="action_apply">تطبيق</string>
+    <string name="action_cancel">إلغاء</string>
+    <string name="cancel">إلغاء</string>
+    <string name="action_save_as_contact">حفظ كجهة اتصال جديدة</string>
+
+    <!-- Settings sections -->
+    <string name="settings_section_display">العرض</string>
+    <string name="settings_section_contacts">جهات الاتصال</string>
+    <string name="settings_section_calling">الاتصال</string>
+    <string name="settings_section_accessibility">إمكانية الوصول</string>
+    <string name="settings_section_tools">أدوات</string>
+    <string name="settings_section_quiet">ساعات الهدوء</string>
+    <string name="settings_section_porting">النسخ الاحتياطي والنقل</string>
+    <string name="settings_section_about">حول</string>
+    <string name="settings_section_shake">إيماءات الهز</string>
+
+    <string name="settings_theme">المظهر</string>
+    <string name="settings_theme_system">حسب النظام</string>
+    <string name="settings_theme_light">فاتح</string>
+    <string name="settings_theme_dark">داكن</string>
+    <string name="settings_text_size">حجم النص</string>
+    <string name="settings_text_small">صغير</string>
+    <string name="settings_text_default">افتراضي</string>
+    <string name="settings_text_large">كبير</string>
+    <string name="settings_text_xlarge">كبير جداً</string>
+    <string name="settings_haptic">اهتزاز عند الكتابة</string>
+    <string name="settings_haptic_sub">اهتزاز قصير عند الضغط على مفتاح لوحة الأرقام</string>
+    <string name="settings_verbose_digits">إعلان مفصل للرقم</string>
+
+    <!-- Save unknown caller choice -->
+    <string name="save_contact_choice_title">حفظ الرقم</string>
+    <string name="save_contact_choice_message">إضافة %1$s إلى جهات اتصالك:</string>
+    <string name="save_contact_choice_new">إنشاء جهة اتصال جديدة</string>
+    <string name="save_contact_choice_existing">الإضافة إلى جهة اتصال موجودة</string>
+    <string name="save_contact_picker_title">اختر جهة اتصال</string>
+
+    <!-- Speed dial -->
+    <string name="settings_speed_dial">الاتصال السريع</string>
+    <string name="settings_speed_dial_sub">اضغط مطولاً على رقم في لوحة الأرقام للاتصال بجهة اتصال</string>
+    <string name="settings_speed_dial_slot_label">الرقم %1$d</string>
+    <string name="settings_speed_dial_slot_empty">لا شيء</string>
+    <string name="settings_speed_dial_clear">مسح الاتصال السريع</string>
+    <string name="settings_speed_dial_picker_title">اختر جهة اتصال للرقم %1$d</string>
+    <string name="speed_dial_no_binding">لا يوجد اتصال سريع للرقم %1$d</string>
+    <string name="speed_dial_calling">اتصال سريع: جاري الاتصال بـ %1$s</string>
+
+    <!-- Shake -->
+    <string name="settings_shake_to_call">الهز للاتصال بجهة اتصال</string>
+    <string name="settings_shake_to_call_sub">هز الهاتف للاتصال بجهة الاتصال المختارة</string>
+    <string name="settings_shake_to_call_pick">اختر جهة الاتصال للاتصال بها</string>
+    <string name="settings_shake_to_call_none">لم يتم اختيار جهة اتصال</string>
+    <string name="settings_shake_to_call_picker_title">اختر جهة الاتصال للاتصال بالهز</string>
+    <string name="settings_shake_to_answer">الهز للرد على المكالمة</string>
+    <string name="settings_shake_to_answer_sub">هز الهاتف للرد عند الرنين</string>
+
+    <!-- User guide -->
+    <string name="settings_section_help">المساعدة</string>
+    <string name="settings_user_guide">دليل المستخدم</string>
+    <string name="settings_user_guide_sub">كيفية استخدام تطبيق الاتصال الميسّر</string>
+    <string name="user_guide_title">دليل المستخدم</string>
+    <string name="user_guide_intro">جولة سريعة في كل شاشة وأداة. اضغط على أي قسم لقراءة المزيد.</string>
+
+    <string name="user_guide_section_getting_started">البدء</string>
+    <string name="user_guide_body_getting_started">عند الطلب، اضبط تطبيق الاتصال الميسّر كتطبيق الهاتف الافتراضي حتى يتمكن من إجراء المكالمات واستقبالها. امنح أذونات جهات الاتصال وسجل المكالمات والهاتف عند طلبها. يمكنك تغيير المظهر وحجم النص في أي وقت من الإعدادات ← العرض.</string>
+
+    <string name="user_guide_section_dialpad">لوحة الاتصال</string>
+    <string name="user_guide_body_dialpad">اضغط على الأرقام لإدخال رقم، ثم اضغط على زر الاتصال الأخضر. اضغط مطولاً على 0 لإدخال رمز “+” للأرقام الدولية. زر التراجع يحذف رقماً واحداً؛ اضغط عليه مطولاً لمسح الكل. يمكن تعيين خانات الاتصال السريع من 1 إلى 9 في الإعدادات ← الاتصال.</string>
+
+    <string name="user_guide_section_favorites">المفضلة</string>
+    <string name="user_guide_body_favorites">تظهر جهات الاتصال المميزة بالنجمة هنا كبطاقات كبيرة للاتصال بنقرة واحدة. افتح تفاصيل جهة الاتصال واضغط على أيقونة النجمة لإضافتها إلى المفضلة أو إزالتها منها.</string>
+
+    <string name="user_guide_section_contacts">جهات الاتصال</string>
+    <string name="user_guide_body_contacts">تصفّح قائمة جهات الاتصال الكاملة، أو ابحث بالاسم أو الرقم، أو اضغط على الميكروفون للبحث الصوتي. زر “+” يفتح المحرّر لإنشاء جهة اتصال جديدة. اضغط على أي جهة اتصال لعرض التفاصيل مع إجراءات الاتصال والتعديل والمشاركة والحذف. استخدم عامل التصفية لعرض جهات الاتصال من حساب معيّن فقط.</string>
+
+    <string name="user_guide_section_recents">الأخيرة</string>
+    <string name="user_guide_body_recents">سجل المكالمات الواردة والصادرة والفائتة. اضغط على أي صف لرؤية الخيارات أو اضغط عليه مطولاً للمزيد. يمكن حفظ الأرقام غير المعروفة كجهة اتصال جديدة أو إضافتها إلى جهة اتصال موجودة. استخدم قائمة الخيارات الإضافية لمسح السجل بالكامل.</string>
+
+    <string name="user_guide_section_in_call">أثناء المكالمة</string>
+    <string name="user_guide_body_in_call">أزرار كبيرة تتيح لك كتم الصوت، أو التبديل إلى مكبر الصوت، أو وضع المكالمة قيد الانتظار، أو فتح لوحة الاتصال لإرسال نغمات، أو إنهاء المكالمة. تبقى الشاشة قيد التشغيل أثناء المكالمة لتظل عناصر التحكم في المتناول.</string>
+
+    <string name="user_guide_section_blocking">الحظر وساعات الهدوء</string>
+    <string name="user_guide_body_blocking">احظر أرقاماً فردية من الإعدادات ← الأدوات ← الأرقام المحظورة، أو فعّل خيار “حظر المتصلين المجهولين” لرفض كل من ليس في جهات الاتصال. تقوم ساعات الهدوء برفض المكالمات منخفضة الأولوية بصمت خلال الفترة التي تختارها.</string>
+
+    <string name="user_guide_section_duplicates">البحث عن التكرارات</string>
+    <string name="user_guide_body_duplicates">يبحث في جهات الاتصال عن التكرارات بالاسم أو رقم الهاتف. راجع كل تطابق وادمج الجهات بنقرة واحدة؛ تُدمج الإدخالات الأصلية في جهة اتصال واحدة دون فقدان أي بيانات.</string>
+
+    <string name="user_guide_section_storage">مواقع التخزين</string>
+    <string name="user_guide_body_storage">يعرض الحساب الذي تنتمي إليه كل جهة اتصال (Google أو شريحة SIM أو الهاتف). من هنا يمكنك نقل عدد كبير من جهات الاتصال إلى حساب آخر دفعة واحدة، أو حذف كل جهات الاتصال التابعة لحساب معيّن مرة واحدة.</string>
+
+    <string name="user_guide_section_name_tools">إصلاح الأسماء وتوحيدها</string>
+    <string name="user_guide_body_name_tools">إصلاح الأسماء يعالج مشكلات التنسيق مثل تبادل الاسم الأول واسم العائلة أو المسافات الزائدة. توحيد الأسماء يوحّد تهجيات الاسم الواحد المختلفة (مثل محمد ومحمّد وميحمد) في شكل قياسي واحد عبر جهات الاتصال.</string>
+
+    <string name="user_guide_section_import_export">الاستيراد والتصدير</string>
+    <string name="user_guide_body_import_export">استخدم الإعدادات ← الأدوات ← استيراد جهات الاتصال لقراءة ملف ‎.vcf، أو التصدير لحفظ جهات الاتصال بصيغة ‎.vcf أو ‎.csv للنسخ الاحتياطي أو النقل إلى جهاز آخر.</string>
+
+    <string name="user_guide_section_accessibility">إمكانية الوصول</string>
+    <string name="user_guide_body_accessibility">كبّر حجم النص من الإعدادات ← العرض. من الإعدادات ← إمكانية الوصول يمكنك تفعيل الاهتزاز عند الضغط على لوحة الاتصال، ونطق الأرقام التفصيلي، والرد بالهز عند ورود مكالمة. كل الشاشات موسومة بالكامل لتعمل مع TalkBack.</string>
+</resources>

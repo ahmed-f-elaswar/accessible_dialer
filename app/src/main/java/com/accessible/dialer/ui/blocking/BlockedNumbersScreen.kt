@@ -13,7 +13,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -30,7 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,8 +54,8 @@ import com.accessible.dialer.settings.SettingsRepository
 internal fun BlockedNumbersScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val rootView = LocalView.current
-    val entries by BlockedNumbersRepository.entries.collectAsState()
-    val blockMode by SettingsRepository.blockMode.collectAsState()
+    val entries by BlockedNumbersRepository.entries.collectAsStateWithLifecycle()
+    val blockMode by SettingsRepository.blockMode.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { BlockedNumbersRepository.refresh(context) }
@@ -70,7 +70,7 @@ internal fun BlockedNumbersScreen(onBack: () -> Unit) {
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = backLabel)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backLabel)
                     }
                 },
             )

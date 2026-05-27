@@ -183,6 +183,7 @@
     <string name="name_fix_idle_title">Ready to scan</string>
     <string name="name_fix_idle_sub">Press Rescan above to look for contact names that need cleaning, splitting, or tagging.</string>
     <string name="cancel">Cancel</string>
+    <string name="action_ok">OK</string>
 
     <!-- Contact details (in-app viewer) -->
     <string name="contact_details_title">Contact details</string>
@@ -318,6 +319,27 @@
     <string name="storage_account_local">Local / Phone only</string>
     <string name="storage_account_sim">SIM card</string>
     <string name="storage_none">No contacts found.</string>
+    <!-- Per-account contact list (drill-down from the storage screen). -->
+    <string name="storage_account_empty">No contacts saved in this account yet.</string>
+    <string name="storage_count">%1$d contacts</string>
+    <string name="storage_count_one">1 contact</string>
+    <string name="storage_count_zero">No contacts</string>
+    <string name="storage_select">Select</string>
+    <string name="storage_cancel_select">Cancel selection</string>
+    <string name="storage_select_all">Select all</string>
+    <string name="storage_selected_n">%1$d selected</string>
+    <string name="storage_delete_selected">Delete selected</string>
+    <string name="storage_move_selected">Move selected…</string>
+    <string name="storage_delete_confirm_title">Delete contacts?</string>
+    <string name="storage_delete_confirm_message">Permanently delete %1$d contact(s)? This cannot be undone.</string>
+    <string name="storage_delete_done">Deleted %1$d contact(s)</string>
+    <string name="storage_move_title">Move to which account?</string>
+    <string name="storage_move_done">Moved %1$d contact(s)</string>
+    <string name="storage_move_partial">Moved %1$d of %2$d contact(s)</string>
+    <string name="storage_move_failed">Could not move contacts</string>
+    <string name="storage_open_account">Open account</string>
+    <!-- Editor account picker dialog. -->
+    <string name="editor_pick_account_title">Save contact in</string>
     <string name="duplicates_title">Duplicate contacts</string>
     <string name="duplicates_scanning">Scanning contacts…</string>
     <string name="duplicates_none_found">No duplicates found</string>
@@ -469,6 +491,24 @@
     <string name="clear_all_history_done">Deleted %1$d calls</string>
     <string name="clear_all_history_failed">Could not delete the call log</string>
 
+    <!-- Per-SIM ringtones -->
+    <string name="settings_sim_ringtones">Ringtone per SIM</string>
+    <string name="settings_sim_ringtones_sub">Pick a different ringtone for each calling account</string>
+    <string name="settings_sim_ringtone_for">Ringtone for %1$s</string>
+    <string name="settings_sim_ringtone_default">System default</string>
+    <string name="settings_sim_ringtone_chooser_title">Choose ringtone</string>
+    <string name="settings_sim_ringtone_clear">Use system default</string>
+
+    <!-- Save unknown caller -->
+    <string name="action_save_as_contact">Save as new contact</string>
+
+    <!-- Block unknown callers -->
+    <string name="settings_block_unknown">Block unknown callers</string>
+    <string name="settings_block_unknown_sub">Block every call from a number that is not in your contacts</string>
+    <string name="settings_block_mode_label">When a call is blocked</string>
+    <string name="settings_block_mode_reject">Reject the call</string>
+    <string name="settings_block_mode_silent">Silently ignore (let it ring on their side)</string>
+
     <!-- Voice search -->
     <string name="voice_search">Voice search</string>
     <string name="voice_search_prompt">Tap to speak</string>
@@ -481,4 +521,76 @@
     <string name="voice_search_perm_denied">Microphone permission is required for voice search.</string>
     <string name="voice_search_network">Couldn\'t reach the speech service. Check your connection.</string>
     <string name="voice_search_failed">Voice search failed. Please try again.</string>
+
+    <!-- Save unknown caller: choose new vs existing -->
+    <string name="save_contact_choice_title">Save number</string>
+    <string name="save_contact_choice_message">Add %1$s to your contacts:</string>
+    <string name="save_contact_choice_new">Create new contact</string>
+    <string name="save_contact_choice_existing">Add to existing contact</string>
+    <string name="save_contact_picker_title">Pick a contact</string>
+
+    <!-- Speed dial (long-press digits 1-9) -->
+    <string name="settings_speed_dial">Speed dial</string>
+    <string name="settings_speed_dial_sub">Long-press a digit on the keypad to call a contact</string>
+    <string name="settings_speed_dial_title">Speed dial</string>
+    <string name="settings_speed_dial_subtitle">Pick the contact called by each long-press</string>
+    <string name="settings_speed_dial_slot_label">Digit %1$d</string>
+    <string name="settings_speed_dial_slot_empty">None</string>
+    <string name="settings_speed_dial_clear">Clear speed dial</string>
+    <string name="settings_speed_dial_picker_title">Pick a contact for %1$d</string>
+    <string name="speed_dial_no_binding">No speed dial set for %1$d</string>
+    <string name="speed_dial_calling">Speed dial: calling %1$s</string>
+
+    <!-- Shake to call / answer -->
+    <string name="settings_section_shake">Shake gestures</string>
+    <string name="settings_shake_to_call">Shake to call a contact</string>
+    <string name="settings_shake_to_call_sub">Shake the phone to dial your chosen contact</string>
+    <string name="settings_shake_to_call_pick">Choose contact to call</string>
+    <string name="settings_shake_to_call_none">No contact chosen</string>
+    <string name="settings_shake_to_call_picker_title">Pick the shake-to-call contact</string>
+    <string name="settings_shake_to_answer">Shake to answer call</string>
+    <string name="settings_shake_to_answer_sub">Shake the phone to answer when it is ringing</string>
+
+    <!-- User guide (Settings → Help) -->
+    <string name="settings_section_help">Help</string>
+    <string name="settings_user_guide">User guide</string>
+    <string name="settings_user_guide_sub">How to use Accessible Dialer</string>
+    <string name="user_guide_title">User guide</string>
+    <string name="user_guide_intro">A quick tour of every screen and tool. Tap a section to read more.</string>
+
+    <string name="user_guide_section_getting_started">Getting started</string>
+    <string name="user_guide_body_getting_started">When prompted, set Accessible Dialer as your default phone app so it can place and receive calls. Grant the Contacts, Call log, and Phone permissions when asked. You can change the theme and text size at any time from Settings → Display.</string>
+
+    <string name="user_guide_section_dialpad">Dialpad</string>
+    <string name="user_guide_body_dialpad">Tap digits to enter a number, then press the green Call button. Long-press 0 to type the “+” symbol for international numbers. Backspace removes one digit; long-press it to clear everything. Speed-dial slots 1–9 can be assigned in Settings → Calling.</string>
+
+    <string name="user_guide_section_favorites">Favorites</string>
+    <string name="user_guide_body_favorites">Starred contacts appear here as large tiles for one-tap calling. Open a contact’s details and tap the star icon to add or remove it from Favorites.</string>
+
+    <string name="user_guide_section_contacts">Contacts</string>
+    <string name="user_guide_body_contacts">Browse the full contact list, search by name or number, or tap the microphone to search by voice. The “+” button opens the editor to create a new contact. Tap any contact to open details with call, edit, share, and delete actions. Use the filter to show contacts from a specific account only.</string>
+
+    <string name="user_guide_section_recents">Recents</string>
+    <string name="user_guide_body_recents">Your call history with incoming, outgoing, and missed calls. Tap a row to see options or long-press it for more. Unknown numbers can be saved as a new contact or added to an existing one. Use the overflow menu to clear the entire history.</string>
+
+    <string name="user_guide_section_in_call">During a call</string>
+    <string name="user_guide_body_in_call">Large buttons let you mute, switch to speaker, put the call on hold, open the dialpad to send tones, or end the call. The screen stays on while the call is active so the controls remain reachable.</string>
+
+    <string name="user_guide_section_blocking">Blocking and quiet hours</string>
+    <string name="user_guide_body_blocking">Block individual numbers in Settings → Tools → Blocked numbers, or turn on “Block unknown callers” to reject anyone not in your contacts. Quiet hours silently reject low-priority calls during the window you choose.</string>
+
+    <string name="user_guide_section_duplicates">Find duplicates</string>
+    <string name="user_guide_body_duplicates">Scans your contacts for duplicates by name or phone number. Review each match and merge them with one tap; the original entries are combined into a single contact and nothing is lost.</string>
+
+    <string name="user_guide_section_storage">Storage locations</string>
+    <string name="user_guide_body_storage">Shows which account (Google, SIM, or phone) each contact lives in. From here you can bulk-move contacts to a different account or delete every contact from a single account at once.</string>
+
+    <string name="user_guide_section_name_tools">Name fix and normalize</string>
+    <string name="user_guide_body_name_tools">Name fix repairs formatting problems such as swapped first and last names or extra whitespace. Name normalize standardizes spelling variants of the same name (for example Mohamed, Mohammad, Mahamed) into one canonical form across your contacts.</string>
+
+    <string name="user_guide_section_import_export">Import and export</string>
+    <string name="user_guide_body_import_export">Use Settings → Tools → Import contacts to read a .vcf file, or Export to save your contacts as .vcf or .csv for backup or transfer to another device.</string>
+
+    <string name="user_guide_section_accessibility">Accessibility</string>
+    <string name="user_guide_body_accessibility">Increase the text size in Settings → Display. In Settings → Accessibility you can turn on haptic feedback for dialpad keys, verbose digit announcement, and shake-to-answer for incoming calls. Every screen is fully labeled for TalkBack.</string>
 </resources>

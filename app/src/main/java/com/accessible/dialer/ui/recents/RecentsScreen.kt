@@ -40,7 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -75,12 +75,25 @@ fun RecentsScreen(
     onCallNumber: (String) -> Unit,
     onShowInDialpad: (String) -> Unit,
     onOpenContactDetails: (Long) -> Unit = {},
+    /**
+     * Invoked from a Recents row's "Save as new contact" custom accessibility
+     * action when the row's number does not resolve to a saved contact. The
+     * caller is expected to open the contact editor with the number prefilled.
+     */
+    onSaveAsContact: (String) -> Unit = {},
+    /**
+     * Caller-controlled bump that forces a fresh reload of the call log. Used by
+     * the "Clear all call history" overflow action in [DialerApp] so the list
+     * empties out immediately after the bulk delete, instead of waiting for a
+     * tab switch / recomposition to pull fresh data.
+     */
+    reloadKey: Int = 0,
     vm: RecentsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
-    val entries by vm.entries.collectAsState()
-    val endReached by vm.endReached.collectAsState()
-    val loading by vm.loading.collectAsState()
+    val entries by vm.entries.collectAsStateWithLifecycle()
+    val endReached by vm.endReached.collectAsStateWithLifecycle()
+    val loading by vm.loading.collectAsStateWithLifecycle()
     // Multi-select state for the call log. Long-press toggles, tap toggles while a
     // selection exists, Back clears.
     val selectedIds = remember { mutableStateListOf<Long>() }
@@ -94,7 +107,7 @@ fun RecentsScreen(
     // re-steal focus.
     var focusAfterDeleteId by remember { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(permissionsGranted) {
+    LaunchedEffect(permissionsGranted, reloadKey) {
         if (permissionsGranted && DialerPermissions.granted(context, Manifest.permission.READ_CALL_LOG)) {
             vm.load(context)
         }
@@ -200,6 +213,7 @@ fun RecentsScreen(
             onLoadMore = { vm.loadMore(context) },
             onOpenContactDetails = onOpenContactDetails,
             onDeleteContact = { id, name -> deleteContactRequest = id to name },
+            onSaveAsContact = onSaveAsContact,
             focusTargetId = focusAfterDeleteId,
             onFocusConsumed = { focusAfterDeleteId = null },
         )
@@ -242,6 +256,7 @@ private fun GroupedRecentsList(
     onLoadMore: () -> Unit = {},
     onOpenContactDetails: (Long) -> Unit = {},
     onDeleteContact: (Long, String) -> Unit = { _, _ -> },
+    onSaveAsContact: (String) -> Unit = {},
     focusTargetId: Long? = null,
     onFocusConsumed: () -> Unit = {},
 ) {
@@ -280,6 +295,7 @@ private fun GroupedRecentsList(
                         onToggleSelect = { onToggleSelect(entry.id) },
                         onOpenContactDetails = onOpenContactDetails,
                         onDeleteContact = onDeleteContact,
+                        onSaveAsContact = onSaveAsContact,
                         focusTargetId = focusTargetId,
                         onFocusConsumed = onFocusConsumed,
                     )
@@ -374,6 +390,7 @@ private fun RecentRow(
     onToggleSelect: () -> Unit = {},
     onOpenContactDetails: (Long) -> Unit = {},
     onDeleteContact: (Long, String) -> Unit = { _, _ -> },
+    onSaveAsContact: (String) -> Unit = {},
     focusTargetId: Long? = null,
     onFocusConsumed: () -> Unit = {},
 ) {
@@ -416,6 +433,7 @@ private fun RecentRow(
     val deleteAllLabel = stringResource(R.string.action_delete_recent_all)
     val showContactLabel = stringResource(R.string.action_show_contact_info)
     val deleteContactLabel = stringResource(R.string.action_delete_contact)
+    val saveAsContactLabel = stringResource(R.string.action_save_as_contact)
     val blockLabel = stringResource(R.string.action_block_number)
     val unblockLabel = stringResource(R.string.action_unblock_number)
     val isBlocked = com.accessible.dialer.blocking.BlockedNumbersRepository
@@ -472,6 +490,16 @@ private fun RecentRow(
                         })
                         add(CustomAccessibilityAction(deleteContactLabel) {
                             onDeleteContact(cid, displayName); true
+                        })
+                    }
+                    // The inverse: when the number is NOT a saved contact, offer a
+                    // shortcut to open the editor pre-filled with this number. We
+                    // gate on `contactId == null` (resolved off-thread) so this
+                    // momentarily appears before the lookup finishes; that's fine
+                    // because the action just opens the editor either way.
+                    if (contactId == null && entry.number.isNotBlank()) {
+                        add(CustomAccessibilityAction(saveAsContactLabel) {
+                            onSaveAsContact(entry.number); true
                         })
                     }
                     if (entry.number.isNotBlank()) {

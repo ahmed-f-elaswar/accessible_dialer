@@ -35,6 +35,23 @@ object SettingsRepository {
     private const val KEY_QUIET_END = "quiet_end_min"
     private const val KEY_QUIET_BREAK_THRESHOLD = "quiet_break_threshold"
     private const val KEY_WELCOME_SHOWN = "welcome_shown"
+    // Map of PhoneAccountHandle.id -> ringtone content URI (as String). Stored as a
+    // String set of "id|uri" entries so we can fit multiple SIMs in one pref without
+    // pulling in JSON. Keys with empty URIs are treated as "use system default".
+    private const val KEY_SIM_RINGTONES = "sim_ringtones"
+    // When true, the CallScreeningService applies [BlockMode] to every incoming call
+    // whose number does not match a stored contact (treated as "unknown").
+    private const val KEY_BLOCK_UNKNOWN = "block_unknown"
+    // Map of dialpad digit (1-9) -> phone number. StringSet of "digit|number" entries.
+    // A missing digit means "no speed dial bound"; long-press on that digit falls back
+    // to normal long-press behavior (or no-op for digits without a default).
+    private const val KEY_SPEED_DIAL = "speed_dial_map"
+    // Whether shaking the phone while in the foreground places a call to the
+    // configured speed-dial contact ([KEY_SHAKE_CALL_NUMBER]).
+    private const val KEY_SHAKE_CALL_ENABLED = "shake_to_call_enabled"
+    private const val KEY_SHAKE_CALL_NUMBER = "shake_to_call_number"
+    // Whether shaking the phone while a call is ringing answers the call.
+    private const val KEY_SHAKE_ANSWER_ENABLED = "shake_to_answer_enabled"
     enum class ThemeMode { System, Light, Dark }
     enum class TextScale(val factor: Float) {
         Small(0.9f), Default(1.0f), Large(1.2f), ExtraLarge(1.45f);
@@ -117,6 +134,30 @@ object SettingsRepository {
     private val _welcomeShown = MutableStateFlow(false)
     val welcomeShown: StateFlow<Boolean> get() = _welcomeShown.asStateFlow()
 
+    // PhoneAccountHandle.id -> ringtone content URI string. Empty map means every SIM
+    // falls back to either the contact's CUSTOM_RINGTONE or the global system default.
+    private val _simRingtones = MutableStateFlow<Map<String, String>>(emptyMap())
+    val simRingtones: StateFlow<Map<String, String>> get() = _simRingtones.asStateFlow()
+
+    private val _blockUnknown = MutableStateFlow(false)
+    val blockUnknown: StateFlow<Boolean> get() = _blockUnknown.asStateFlow()
+
+    // Digit (1..9) -> phone number bound to a long-press on that dialpad key. Digits
+    // not present in the map have no speed-dial action (long-press is a no-op or
+    // falls back to the default for that key, e.g. '+' for 0).
+    private val _speedDial = MutableStateFlow<Map<Int, String>>(emptyMap())
+    val speedDial: StateFlow<Map<Int, String>> get() = _speedDial.asStateFlow()
+
+    private val _shakeToCallEnabled = MutableStateFlow(false)
+    val shakeToCallEnabled: StateFlow<Boolean> get() = _shakeToCallEnabled.asStateFlow()
+
+    /** Phone number called when shake-to-call fires. Empty = no destination set. */
+    private val _shakeToCallNumber = MutableStateFlow("")
+    val shakeToCallNumber: StateFlow<String> get() = _shakeToCallNumber.asStateFlow()
+
+    private val _shakeToAnswerEnabled = MutableStateFlow(false)
+    val shakeToAnswerEnabled: StateFlow<Boolean> get() = _shakeToAnswerEnabled.asStateFlow()
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -138,6 +179,32 @@ object SettingsRepository {
         _quietEnd.value = prefs.getInt(KEY_QUIET_END, 7 * 60).coerceIn(0, 1439)
         _quietBreakThreshold.value = prefs.getInt(KEY_QUIET_BREAK_THRESHOLD, 3).coerceAtLeast(0)
         _welcomeShown.value = prefs.getBoolean(KEY_WELCOME_SHOWN, false)
+        _simRingtones.value = (prefs.getStringSet(KEY_SIM_RINGTONES, emptySet()) ?: emptySet())
+            .mapNotNull { entry ->
+                // Stored as "<id>|<uri>". id can be empty (e.g. fallback SIM with no
+                // PhoneAccountHandle.id), but uri must be present and non-blank.
+                val sep = entry.indexOf('|')
+                if (sep < 0) return@mapNotNull null
+                val id = entry.substring(0, sep)
+                val uri = entry.substring(sep + 1)
+                if (uri.isBlank()) null else id to uri
+            }
+            .toMap()
+        _blockUnknown.value = prefs.getBoolean(KEY_BLOCK_UNKNOWN, false)
+        _speedDial.value = (prefs.getStringSet(KEY_SPEED_DIAL, emptySet()) ?: emptySet())
+            .mapNotNull { entry ->
+                // "<digit>|<number>". Digit must parse to 1..9; number must be non-blank.
+                val sep = entry.indexOf('|')
+                if (sep < 0) return@mapNotNull null
+                val d = entry.substring(0, sep).toIntOrNull() ?: return@mapNotNull null
+                if (d !in 1..9) return@mapNotNull null
+                val n = entry.substring(sep + 1)
+                if (n.isBlank()) null else d to n
+            }
+            .toMap()
+        _shakeToCallEnabled.value = prefs.getBoolean(KEY_SHAKE_CALL_ENABLED, false)
+        _shakeToCallNumber.value = prefs.getString(KEY_SHAKE_CALL_NUMBER, "") ?: ""
+        _shakeToAnswerEnabled.value = prefs.getBoolean(KEY_SHAKE_ANSWER_ENABLED, false)
     }
     fun setTheme(mode: ThemeMode) { _theme.value = mode; prefs.edit { putString(KEY_THEME, mode.name) } }
     fun setTextScale(s: TextScale) { _textScale.value = s; prefs.edit { putString(KEY_TEXT_SCALE, s.name) } }
@@ -185,4 +252,62 @@ object SettingsRepository {
     }
 
     fun setWelcomeShown(v: Boolean) { _welcomeShown.value = v; prefs.edit { putBoolean(KEY_WELCOME_SHOWN, v) } }
+
+    /**
+     * Persist a ringtone URI for the SIM identified by [phoneAccountId]. Pass a blank
+     * [uri] (or use [clearSimRingtone]) to remove the override and fall back to the
+     * per-contact / system default.
+     */
+    fun setSimRingtone(phoneAccountId: String, uri: String) {
+        val current = _simRingtones.value.toMutableMap()
+        if (uri.isBlank()) current.remove(phoneAccountId) else current[phoneAccountId] = uri
+        _simRingtones.value = current.toMap()
+        prefs.edit {
+            putStringSet(
+                KEY_SIM_RINGTONES,
+                current.entries.map { "${it.key}|${it.value}" }.toSet(),
+            )
+        }
+    }
+
+    fun clearSimRingtone(phoneAccountId: String) = setSimRingtone(phoneAccountId, "")
+
+    fun setBlockUnknown(v: Boolean) {
+        _blockUnknown.value = v
+        prefs.edit { putBoolean(KEY_BLOCK_UNKNOWN, v) }
+    }
+
+    /**
+     * Bind [number] to long-press on dialpad digit [digit] (1..9). Passing a blank
+     * [number] removes the binding (equivalent to [clearSpeedDial]).
+     */
+    fun setSpeedDial(digit: Int, number: String) {
+        if (digit !in 1..9) return
+        val current = _speedDial.value.toMutableMap()
+        if (number.isBlank()) current.remove(digit) else current[digit] = number
+        _speedDial.value = current.toMap()
+        prefs.edit {
+            putStringSet(
+                KEY_SPEED_DIAL,
+                current.entries.map { "${it.key}|${it.value}" }.toSet(),
+            )
+        }
+    }
+
+    fun clearSpeedDial(digit: Int) = setSpeedDial(digit, "")
+
+    fun setShakeToCallEnabled(v: Boolean) {
+        _shakeToCallEnabled.value = v
+        prefs.edit { putBoolean(KEY_SHAKE_CALL_ENABLED, v) }
+    }
+
+    fun setShakeToCallNumber(number: String) {
+        _shakeToCallNumber.value = number
+        prefs.edit { putString(KEY_SHAKE_CALL_NUMBER, number) }
+    }
+
+    fun setShakeToAnswerEnabled(v: Boolean) {
+        _shakeToAnswerEnabled.value = v
+        prefs.edit { putBoolean(KEY_SHAKE_ANSWER_ENABLED, v) }
+    }
 }

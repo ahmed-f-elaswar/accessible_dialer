@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -194,7 +194,7 @@ internal fun DuplicateScanScreen(onBack: () -> Unit) {
                         onClick = onBack,
                         modifier = Modifier.semantics { contentDescription = backLabel },
                     ) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = backLabel)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backLabel)
                     }
                 },
                 actions = {

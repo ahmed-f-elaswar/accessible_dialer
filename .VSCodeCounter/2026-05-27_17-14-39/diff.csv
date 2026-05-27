@@ -1,0 +1,8 @@
+"filename", "language", "Kotlin", "Kotlinscript", "comment", "blank", "total"
+"d:\code\accessible_dialer\app\build.gradle.kts", "Kotlinscript", 0, 1, 3, 0, 4
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactEditorScreen.kt", "Kotlin", 95, 0, 43, 3, 141
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactsScreen.kt", "Kotlin", 7, 0, 8, 0, 15
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\recents\RecentsViewModel.kt", "Kotlin", 46, 0, 23, 2, 71
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\storage\StorageLocationsScreen.kt", "Kotlin", 3, 0, 6, 0, 9
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\ContactAccounts.kt", "Kotlin", 1, 0, 4, 0, 5
+"Total", "-", 152, 1, 87, 5, 245

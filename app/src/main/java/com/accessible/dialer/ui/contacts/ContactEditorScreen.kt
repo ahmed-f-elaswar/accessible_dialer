@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -126,6 +128,13 @@ internal fun ContactEditorScreen(
     contactId: Long, // 0 = new
     onBack: () -> Unit,
     onSaved: (Long) -> Unit,
+    /**
+     * Optional phone number to pre-populate when creating a new contact (contactId
+     * <= 0). Ignored when editing an existing contact. Used by the Recents "Save as
+     * new contact" action to hand off an unknown caller's number directly into the
+     * editor without an extra paste step.
+     */
+    prefillNumber: String? = null,
 ) {
     val context = LocalContext.current
     val isNew = contactId <= 0L
@@ -150,10 +159,22 @@ internal fun ContactEditorScreen(
     val websites = remember { mutableStateListOf<EditableWebsite>() }
     val events = remember { mutableStateListOf<EditableEvent>() }
     var nextKey by remember { mutableStateOf(0) }
+    // Account that will own this contact. When [isNew] the user picks from a
+    // dropdown; when editing we display the current owner as read-only (moving
+    // contacts between accounts is done from Settings → Storage locations,
+    // which can copy every field including group memberships in a single
+    // batch — too heavyweight to bolt onto every save here).
+    var selectedAccountKey by rememberSaveable {
+        mutableStateOf(com.accessible.dialer.util.ContactAccounts.LOCAL_KEY)
+    }
 
     LaunchedEffect(contactId) {
         if (isNew) {
-            phones.add(EditablePhone(nextKey++, "", ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE))
+            phones.add(EditablePhone(
+                nextKey++,
+                prefillNumber.orEmpty(),
+                ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE,
+            ))
             return@LaunchedEffect
         }
         val loaded = withContext(Dispatchers.IO) { loadForEdit(context, contactId) }
@@ -172,6 +193,19 @@ internal fun ContactEditorScreen(
         loaded.addresses.forEach { addresses.add(EditableAddress(nextKey++, it.first, it.second)) }
         loaded.websites.forEach { websites.add(EditableWebsite(nextKey++, it.first, it.second)) }
         loaded.events.forEach { events.add(EditableEvent(nextKey++, it.first, it.second)) }
+        selectedAccountKey = loaded.accountKey
+        // When the editor was opened from "Add to existing contact" with a phone
+        // number to merge in, append it as a fresh editable phone row (unless an
+        // exact match already exists) so the user can adjust the label/type before
+        // saving. Comparison is on the unformatted string — close enough for the
+        // dialer flow that fed it.
+        if (!prefillNumber.isNullOrBlank() && phones.none { it.number == prefillNumber }) {
+            phones.add(EditablePhone(
+                nextKey++,
+                prefillNumber,
+                ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE,
+            ))
+        }
         if (phones.isEmpty()) {
             phones.add(EditablePhone(nextKey++, "", ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE))
         }
@@ -200,7 +234,7 @@ internal fun ContactEditorScreen(
                         onClick = onBack,
                         modifier = Modifier.semantics { contentDescription = backLabel },
                     ) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = backLabel)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backLabel)
                     }
                 },
                 actions = {
@@ -224,6 +258,7 @@ internal fun ContactEditorScreen(
                                 addresses = addresses.toList(),
                                 websites = websites.toList(),
                                 events = events.toList(),
+                                accountKey = selectedAccountKey,
                             )
                             if (newId != null) {
                                 Toast.makeText(context, R.string.editor_saved, Toast.LENGTH_SHORT).show()
@@ -255,6 +290,19 @@ internal fun ContactEditorScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // -------- Storage account --------
+            // For a new contact we let the user pick where the row lives —
+            // Local, Google, Samsung, etc. For an existing contact this is
+            // shown as a read-only label; the move flow lives in
+            // Settings → Storage locations so we don't half-implement
+            // cross-account migration on the save path.
+            AccountSelectorRow(
+                accountKey = selectedAccountKey,
+                editable = isNew,
+                onChange = { selectedAccountKey = it },
+            )
+            HorizontalDivider()
+
             // -------- Name --------
             SectionLabel(stringResource(R.string.editor_section_name))
             OutlinedTextField(
@@ -450,6 +498,76 @@ private fun AddButton(label: String, onClick: () -> Unit) {
         Icon(Icons.Filled.Add, contentDescription = null)
         Spacer(Modifier.size(4.dp))
         Text(label)
+    }
+}
+
+/**
+ * "Saved in" row for the editor. Shows the friendly label of the contact's
+ * storage account and \u2014 only when [editable] (i.e. creating a new contact)
+ * \u2014 opens a dropdown of every account on the device on click.
+ *
+ * When not editable we still render the row (so the user knows *where* the
+ * contact lives) but disable the click + dropdown.
+ */
+@Composable
+private fun AccountSelectorRow(
+    accountKey: String,
+    editable: Boolean,
+    onChange: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    var entries by remember { mutableStateOf<List<com.accessible.dialer.util.ContactAccounts.Entry>>(emptyList()) }
+    // Only load the account list when the picker can actually open it. Keying
+    // off `editable` instead of `Unit` means recompositions of the editor (one
+    // happens on every keystroke in any text field) don't re-issue the
+    // ContentResolver query — it runs exactly once per (new) editor session.
+    LaunchedEffect(editable) {
+        if (!editable) return@LaunchedEffect
+        entries = withContext(Dispatchers.IO) {
+            com.accessible.dialer.util.ContactAccounts.list(context)
+        }
+    }
+    val currentLabel = com.accessible.dialer.util.ContactAccounts.friendlyLabel(accountKey)
+    SectionLabel(stringResource(R.string.editor_section_account))
+    Box {
+        OutlinedTextField(
+            value = currentLabel,
+            onValueChange = {},
+            readOnly = true,
+            enabled = editable,
+            label = { Text(stringResource(R.string.editor_field_account)) },
+            trailingIcon = {
+                if (editable) {
+                    val openLabel = stringResource(R.string.editor_pick_account_title)
+                    IconButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.semantics { contentDescription = openLabel },
+                    ) {
+                        Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (editable) {
+                    Modifier.clickable { expanded = true }
+                } else Modifier),
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            entries.forEach { entry ->
+                DropdownMenuItem(
+                    text = { Text(entry.label) },
+                    onClick = {
+                        expanded = false
+                        onChange(entry.key)
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -693,6 +811,15 @@ private data class LoadedForEdit(
     val addresses: List<Pair<String, Int>>,
     val websites: List<Pair<String, Int>>,
     val events: List<Pair<String, Int>>,
+    /**
+     * Account that currently owns this contact, encoded as
+     * `"<type>|<name>"` with the literal string `"null"` for missing parts.
+     * If the contact has multiple raw rows in different accounts, this is the
+     * first one encountered — the editor renders the value read-only when
+     * editing so the user knows where the data lives but doesn't try to
+     * migrate it mid-edit (that flow lives in Settings → Storage locations).
+     */
+    val accountKey: String,
 )
 
 private fun loadForEdit(context: Context, contactId: Long): LoadedForEdit {
@@ -762,7 +889,36 @@ private fun loadForEdit(context: Context, contactId: Long): LoadedForEdit {
         displayName, given, middle, family, prefix, suffix,
         company, title, nickname, note,
         phones, emails, addresses, websites, events,
+        accountKey = loadFirstAccountKey(cr, contactId),
     )
+}
+
+/**
+ * Returns the account key (`"<type>|<name>"`) of the first non-deleted
+ * RawContact under [contactId]. Falls back to [com.accessible.dialer.util.ContactAccounts.LOCAL_KEY]
+ * when the contact has no raw row (shouldn't happen for an aggregated contact
+ * loaded from the UI, but we guard anyway).
+ */
+private fun loadFirstAccountKey(
+    cr: android.content.ContentResolver,
+    contactId: Long,
+): String {
+    cr.query(
+        ContactsContract.RawContacts.CONTENT_URI,
+        arrayOf(
+            ContactsContract.RawContacts.ACCOUNT_TYPE,
+            ContactsContract.RawContacts.ACCOUNT_NAME,
+        ),
+        "${ContactsContract.RawContacts.CONTACT_ID}=? AND " +
+            "${ContactsContract.RawContacts.DELETED}=0",
+        arrayOf(contactId.toString()),
+        null,
+    )?.use { c ->
+        if (c.moveToFirst()) {
+            return "${c.getString(0) ?: "null"}|${c.getString(1) ?: "null"}"
+        }
+    }
+    return com.accessible.dialer.util.ContactAccounts.LOCAL_KEY
 }
 
 private fun saveContact(
@@ -783,6 +939,8 @@ private fun saveContact(
     addresses: List<EditableAddress>,
     websites: List<EditableWebsite>,
     events: List<EditableEvent>,
+    /** Account to write to when creating a new contact. Ignored for edits. */
+    accountKey: String,
 ): Long? {
     val cr = context.contentResolver
     val ops = arrayListOf<ContentProviderOperation>()
@@ -881,10 +1039,16 @@ private fun saveContact(
 
     return runCatching {
         if (existingContactId <= 0L) {
+            // Resolve the user's chosen account into the (possibly null)
+            // ACCOUNT_TYPE / ACCOUNT_NAME pair the ContentProvider expects.
+            // For "Local / Phone only" both are null; for cloud accounts both
+            // are non-null; partial keys (one null) are handled too because
+            // the AccountManager occasionally returns them.
+            val parsed = com.accessible.dialer.util.ContactAccounts.parse(accountKey)
             ops += ContentProviderOperation
                 .newInsert(ContactsContract.RawContacts.CONTENT_URI)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, null)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, null)
+                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, parsed.type)
+                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, parsed.name)
                 .build()
             addDataInserts(null, backReference = true)
             val results = cr.applyBatch(ContactsContract.AUTHORITY, ops)
