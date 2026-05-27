@@ -74,6 +74,7 @@
     <string name="recents_outgoing">Outgoing</string>
     <string name="recents_missed">Missed</string>
     <string name="recents_rejected">Rejected</string>
+    <string name="recents_blocked">Blocked</string>
     <string name="recents_call_back">Call %1$s</string>
     <string name="recents_show_in_keypad">Show %1$s in keypad</string>
     <string name="recents_call_generic">Call</string>
@@ -84,6 +85,15 @@
     <string name="recents_section_earlier">Earlier</string>
     <string name="recents_section_summary">%1$s, %2$d calls</string>
     <string name="recents_section_count">%1$d calls</string>
+
+    <!-- Missed call notifications -->
+    <string name="missed_call_channel_name">Missed calls</string>
+    <string name="missed_call_channel_desc">Alerts you about missed incoming calls.</string>
+    <string name="missed_call_title">Missed call</string>
+    <string name="missed_call_title_count">%1$d missed calls</string>
+    <string name="missed_call_unknown">Unknown caller</string>
+    <string name="missed_call_action_call_back">Call back</string>
+    <string name="missed_call_action_message">Message</string>
 
     <!-- Contacts -->
     <string name="contacts_empty">No contacts found</string>
@@ -122,6 +132,13 @@
     <string name="settings_section_accessibility">Accessibility</string>
     <string name="settings_section_about">About</string>
 
+    <!-- Subtitles for the top-level settings list NavRows -->
+    <string name="settings_display_sub">Theme, text size, contact list</string>
+    <string name="settings_calling_sub">Default account, ringtones, speed dial</string>
+    <string name="settings_accessibility_sub">Haptics, voice readout, shake gestures</string>
+    <string name="settings_blocking_sub">Blocked numbers, unknown callers, quiet hours</string>
+    <string name="settings_tools_sub">Find duplicates, storage, name cleanup</string>
+
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_system">Follow system</string>
     <string name="settings_theme_light">Light</string>
@@ -154,7 +171,7 @@
     <string name="contacts_new">New contact</string>
     <string name="action_edit_contact">Edit contact</string>
     <string name="action_delete_contact">Delete contact</string>
-    <string name="action_delete_recent">Delete from recents</string>
+    <string name="action_delete_recent">Delete latest call</string>
     <string name="action_delete_recent_all">Delete entire entry</string>
     <string name="action_show_contact_info">Show contact info</string>
     <string name="dialpad_suggestion_call">%1$s, %2$s</string>
@@ -290,6 +307,7 @@
 
     <!-- Duplicate-detection wizard -->
     <string name="settings_section_tools">Tools</string>
+    <string name="settings_section_block">Block settings</string>
     <string name="settings_find_duplicates">Find duplicate contacts</string>
     <string name="settings_find_duplicates_sub">Scan for contacts with the same name, phone, or email and merge them</string>
     <string name="settings_storage_locations">Where contacts are stored</string>
@@ -493,6 +511,8 @@
 
     <!-- Per-SIM ringtones -->
     <string name="settings_sim_ringtones">Ringtone per SIM</string>
+    <string name="settings_ringtones">Ringtones</string>
+    <string name="settings_ringtones_sub">Pick a different ringtone for each SIM</string>
     <string name="settings_sim_ringtones_sub">Pick a different ringtone for each calling account</string>
     <string name="settings_sim_ringtone_for">Ringtone for %1$s</string>
     <string name="settings_sim_ringtone_default">System default</string>
@@ -550,6 +570,10 @@
     <string name="settings_shake_to_call_picker_title">Pick the shake-to-call contact</string>
     <string name="settings_shake_to_answer">Shake to answer call</string>
     <string name="settings_shake_to_answer_sub">Shake the phone to answer when it is ringing</string>
+    <string name="settings_shake_to_end">Shake to end call</string>
+    <string name="settings_shake_to_end_sub">Shake the phone during a call to hang up</string>
+    <string name="settings_proximity_speaker">Auto speaker when away from ear</string>
+    <string name="settings_proximity_speaker_sub">Turn on the speakerphone when the phone is moved away from your ear, and turn it off when you bring it back</string>
 
     <!-- User guide (Settings → Help) -->
     <string name="settings_section_help">Help</string>

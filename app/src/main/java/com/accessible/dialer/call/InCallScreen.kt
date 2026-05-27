@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -100,24 +101,30 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
     val speakerOffLabel = stringResource(R.string.call_speaker_off)
     val muteOnLabel = stringResource(R.string.call_mute_on)
     val muteOffLabel = stringResource(R.string.call_mute_off)
+    val answerLabel = stringResource(R.string.call_answer)
+    val declineLabel = stringResource(R.string.call_decline)
     // Speak swipe-toggle feedback to TalkBack directly via the platform view, so no
     // on-screen element is needed.
     val rootView = LocalView.current
     fun announce(text: String) {
         rootView.announceForAccessibility(text)
     }
-    // Swipe up = toggle speakerphone, swipe down = toggle mute. Each swipe past the
-    // threshold flips the state once and resets the accumulator, so a single long drag
-    // can flip a control multiple times ("repeating switches") and discrete swipes each
-    // produce one toggle. Only enabled while the call is connected, since those are
-    // the only states where mute/speaker have any effect.
+    // Swipe up / down behaviour depends on the call state:
+    //   - RINGING (incoming): swipe up answers, swipe down declines. This mirrors
+    //     stock phone apps and gives users a one-handed, eyes-free way to handle an
+    //     incoming call.
+    //   - ACTIVE / HOLDING / DIALING (any non-ringing live call): swipe up toggles
+    //     speakerphone, swipe down toggles mute. Each swipe past the threshold flips
+    //     the state once and resets the accumulator, so a single long drag can flip a
+    //     control multiple times ("repeating switches") and discrete swipes each
+    //     produce one toggle.
     val density = LocalDensity.current
     val swipeThresholdPx = with(density) { 64.dp.toPx() }
     var dragAccum by remember { mutableStateOf(0f) }
-    val gestureEnabled = active?.telecomState == Call.STATE_ACTIVE ||
-        active?.telecomState == Call.STATE_HOLDING
+    val gestureEnabled = active != null
+    val isRinging = active?.telecomState == Call.STATE_RINGING
     val swipeModifier = if (gestureEnabled) {
-        Modifier.pointerInput(Unit) {
+        Modifier.pointerInput(isRinging) {
             detectVerticalDragGestures(
                 onDragStart = { dragAccum = 0f },
                 onDragEnd = { dragAccum = 0f },
@@ -125,17 +132,29 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
             ) { _, dy ->
                 dragAccum += dy
                 if (dragAccum <= -swipeThresholdPx) {
-                    // Read the *current* mirrored state from the holder so repeated swipes
-                    // within one drag toggle from the latest known route, not from a stale
-                    // captured boolean.
-                    val newOn = !OngoingCallHolder.audio.value.speaker
-                    OngoingCallHolder.setSpeaker(newOn)
-                    announce(if (newOn) speakerOnLabel else speakerOffLabel)
+                    if (isRinging) {
+                        // Single-shot: once the user swipes up to answer, no further
+                        // gestures should fire until the call state changes.
+                        OngoingCallHolder.answer()
+                        announce(answerLabel)
+                    } else {
+                        // Read the *current* mirrored state from the holder so repeated
+                        // swipes within one drag toggle from the latest known route, not
+                        // from a stale captured boolean.
+                        val newOn = !OngoingCallHolder.audio.value.speaker
+                        OngoingCallHolder.setSpeaker(newOn)
+                        announce(if (newOn) speakerOnLabel else speakerOffLabel)
+                    }
                     dragAccum = 0f
                 } else if (dragAccum >= swipeThresholdPx) {
-                    val newMuted = !OngoingCallHolder.audio.value.muted
-                    OngoingCallHolder.setMuted(newMuted)
-                    announce(if (newMuted) muteOnLabel else muteOffLabel)
+                    if (isRinging) {
+                        OngoingCallHolder.reject()
+                        announce(declineLabel)
+                    } else {
+                        val newMuted = !OngoingCallHolder.audio.value.muted
+                        OngoingCallHolder.setMuted(newMuted)
+                        announce(if (newMuted) muteOnLabel else muteOffLabel)
+                    }
                     dragAccum = 0f
                 }
             }
@@ -234,7 +253,15 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
 
             // Mid-call controls visible only when call is connected.
             if (active?.telecomState == Call.STATE_ACTIVE || active?.telecomState == Call.STATE_HOLDING) {
-                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                // SpaceEvenly + fillMaxWidth lets all five controls (mute, speaker,
+                // hold, add, keypad) distribute across the screen instead of being
+                // a fixed-spacing row that overflows on narrower phones — which
+                // previously hid the keypad button off the right edge.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     ToggleControl(
                         on = muted,
                         onLabel = stringResource(R.string.call_unmute),
@@ -249,10 +276,10 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                     )
                     ToggleControl(
                         on = speaker,
-                        onLabel = stringResource(R.string.call_speaker),
-                        offLabel = stringResource(R.string.call_speaker),
+                        onLabel = stringResource(R.string.call_speaker_on),
+                        offLabel = stringResource(R.string.call_speaker_off),
                         iconOn = Icons.Filled.VolumeUp,
-                        iconOff = Icons.Filled.VolumeUp,
+                        iconOff = Icons.Filled.VolumeOff,
                         onToggle = {
                             val next = !speaker
                             OngoingCallHolder.setSpeaker(next)

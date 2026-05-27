@@ -52,8 +52,7 @@ import com.accessible.dialer.util.ShakeDetector
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        // If launched with tel: URI, prefill it in the dialpad.
+        super.onCreate(savedInstanceState)        // If launched with tel: URI, prefill it in the dialpad.
         val initialNumber: String? = when (intent?.action) {
             Intent.ACTION_DIAL, Intent.ACTION_VIEW, Intent.ACTION_CALL ->
                 intent?.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart
@@ -64,6 +63,21 @@ class MainActivity : ComponentActivity() {
         // tab instead of opening on the dialpad.
         val startOnContacts: Boolean =
             intent?.categories?.contains(Intent.CATEGORY_APP_CONTACTS) == true
+        // Set by [MissedCallNotifier] on the tap PendingIntent so the dialer lands on
+        // the Recents tab — same UX as stock phone apps where tapping a missed-call
+        // notification shows the call history.
+        val startOnRecents: Boolean =
+            intent?.getBooleanExtra(
+                com.accessible.dialer.call.MissedCallNotifier.EXTRA_OPEN_RECENTS,
+                false,
+            ) == true
+        // Clear the missed-call notification that brought us here so the user doesn't
+        // have to swipe it away by hand after opening the dialer.
+        intent?.getStringExtra(
+            com.accessible.dialer.call.MissedCallNotifier.EXTRA_DISMISS_MISSED_NUMBER,
+        )?.let { key ->
+            com.accessible.dialer.call.MissedCallNotifier.cancelForKey(this, key)
+        }
         // When another app hands us a tel: number we behave like a system dialer and place
         // the call immediately instead of waiting for the user to confirm on the keypad.
         val autoCall: Boolean = !initialNumber.isNullOrBlank()
@@ -71,14 +85,41 @@ class MainActivity : ComponentActivity() {
             AppRoot(
                 initialNumber = initialNumber,
                 startOnContacts = startOnContacts,
+                startOnRecents = startOnRecents,
                 autoCall = autoCall,
             )
+        }
+    }
+
+    /**
+     * Activity is `launchMode="singleTask"`, so when the user taps a missed-call
+     * notification while the dialer is already running the system delivers the
+     * notification's Intent here rather than spinning up a fresh [onCreate]. Honour the
+     * dismiss extra so the notification clears, and forward tel: URIs straight to
+     * [placeCall] so the "Call back" notification action behaves the same whether the
+     * app was cold or warm.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra(
+            com.accessible.dialer.call.MissedCallNotifier.EXTRA_DISMISS_MISSED_NUMBER,
+        )?.let { key ->
+            com.accessible.dialer.call.MissedCallNotifier.cancelForKey(this, key)
+        }
+        val number = when (intent.action) {
+            Intent.ACTION_DIAL, Intent.ACTION_VIEW, Intent.ACTION_CALL ->
+                intent.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart
+            else -> null
+        }
+        if (!number.isNullOrBlank()) {
+            placeCall(this, number)
         }
     }
 }
 
 @Composable
-private fun AppRoot(initialNumber: String?, startOnContacts: Boolean, autoCall: Boolean) {
+private fun AppRoot(initialNumber: String?, startOnContacts: Boolean, startOnRecents: Boolean, autoCall: Boolean) {
     val context = LocalContext.current
     val themeMode by SettingsRepository.theme.collectAsStateWithLifecycle()
     val textScale by SettingsRepository.textScale.collectAsStateWithLifecycle()
@@ -87,13 +128,14 @@ private fun AppRoot(initialNumber: String?, startOnContacts: Boolean, autoCall: 
         AppContent(
             initialNumber = initialNumber,
             startOnContacts = startOnContacts,
+            startOnRecents = startOnRecents,
             autoCall = autoCall,
         )
     }
 }
 
 @Composable
-private fun AppContent(initialNumber: String?, startOnContacts: Boolean, autoCall: Boolean) {
+private fun AppContent(initialNumber: String?, startOnContacts: Boolean, startOnRecents: Boolean, autoCall: Boolean) {
     val context = LocalContext.current
     var permissionsGranted by remember { mutableStateOf(DialerPermissions.allGranted(context)) }
     var isDefault by remember { mutableStateOf(DefaultDialer.isDefault(context)) }
@@ -193,6 +235,7 @@ private fun AppContent(initialNumber: String?, startOnContacts: Boolean, autoCal
     DialerApp(
         initialNumber = initialNumber,
         startOnContacts = startOnContacts,
+        startOnRecents = startOnRecents,
         permissionsGranted = permissionsGranted,
         isDefaultDialer = isDefault,
         onRequestPermissions = { permLauncher.launch(DialerPermissions.all) },

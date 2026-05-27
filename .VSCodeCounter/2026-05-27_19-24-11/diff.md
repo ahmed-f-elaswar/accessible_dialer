@@ -1,0 +1,42 @@
+# Diff Summary
+
+Date : 2026-05-27 19:24:11
+
+Directory d:\\code\\accessible_dialer
+
+Total : 14 files,  99 codes, 66 comments, 6 blanks, all 171 lines
+
+[Summary](results.md) / [Details](details.md) / Diff Summary / [Diff Details](diff-details.md)
+
+## Languages
+| language | files | code | comment | blank | total |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| Kotlin | 9 | 81 | 66 | 6 | 153 |
+| XML | 5 | 18 | 0 | 0 | 18 |
+
+## Directories
+| path | files | code | comment | blank | total |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| . | 14 | 99 | 66 | 6 | 171 |
+| app | 14 | 99 | 66 | 6 | 171 |
+| app\\src | 14 | 99 | 66 | 6 | 171 |
+| app\\src\\main | 14 | 99 | 66 | 6 | 171 |
+| app\\src\\main\\java | 9 | 81 | 66 | 6 | 153 |
+| app\\src\\main\\java\\com | 9 | 81 | 66 | 6 | 153 |
+| app\\src\\main\\java\\com\\accessible | 9 | 81 | 66 | 6 | 153 |
+| app\\src\\main\\java\\com\\accessible\\dialer | 9 | 81 | 66 | 6 | 153 |
+| app\\src\\main\\java\\com\\accessible\\dialer\\blocking | 1 | -2 | 12 | 0 | 10 |
+| app\\src\\main\\java\\com\\accessible\\dialer\\call | 3 | 37 | 32 | 3 | 72 |
+| app\\src\\main\\java\\com\\accessible\\dialer\\ui | 5 | 46 | 22 | 3 | 71 |
+| app\\src\\main\\java\\com\\accessible\\dialer\\ui (Files) | 1 | 22 | 6 | 1 | 29 |
+| app\\src\\main\\java\\com\\accessible\\dialer\\ui\\contacts | 1 | 9 | 5 | 0 | 14 |
+| app\\src\\main\\java\\com\\accessible\\dialer\\ui\\recents | 2 | 12 | 11 | 1 | 24 |
+| app\\src\\main\\java\\com\\accessible\\dialer\\ui\\settings | 1 | 3 | 0 | 1 | 4 |
+| app\\src\\main\\res | 5 | 18 | 0 | 0 | 18 |
+| app\\src\\main\\res\\values | 1 | 2 | 0 | 0 | 2 |
+| app\\src\\main\\res\\values-ar | 1 | 4 | 0 | 0 | 4 |
+| app\\src\\main\\res\\values-de | 1 | 4 | 0 | 0 | 4 |
+| app\\src\\main\\res\\values-es | 1 | 4 | 0 | 0 | 4 |
+| app\\src\\main\\res\\values-fr | 1 | 4 | 0 | 0 | 4 |
+
+[Summary](results.md) / [Details](details.md) / Diff Summary / [Diff Details](diff-details.md)

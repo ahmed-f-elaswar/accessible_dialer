@@ -46,6 +46,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,9 +108,20 @@ fun RecentsScreen(
     // re-steal focus.
     var focusAfterDeleteId by remember { mutableStateOf<Long?>(null) }
 
+    // Track the reloadKey we have already applied. We can't compare against a
+    // remember-captured "initial" value because Recents gets disposed whenever
+    // the user opens a full-screen sub-route (contact editor, details, etc.) —
+    // on the way back the initial value would be re-captured to the *bumped*
+    // key, so a save-and-return would never trigger a reload. rememberSaveable
+    // survives that round-trip; the first composition sees -1 and falls back to
+    // ensureLoaded (cheap), subsequent bumps drive a full re-query.
+    var lastAppliedKey by rememberSaveable { mutableStateOf(-1) }
     LaunchedEffect(permissionsGranted, reloadKey) {
         if (permissionsGranted && DialerPermissions.granted(context, Manifest.permission.READ_CALL_LOG)) {
-            vm.load(context)
+            if (reloadKey != lastAppliedKey) {
+                if (lastAppliedKey == -1) vm.ensureLoaded(context) else vm.load(context)
+                lastAppliedKey = reloadKey
+            }
         }
     }
     // Trim selections that point at entries no longer in the list (after reload/delete).
@@ -424,6 +436,7 @@ private fun RecentRow(
         CallLog.Calls.OUTGOING_TYPE -> stringResource(R.string.recents_outgoing)
         CallLog.Calls.MISSED_TYPE -> stringResource(R.string.recents_missed)
         CallLog.Calls.REJECTED_TYPE -> stringResource(R.string.recents_rejected)
+        CallLog.Calls.BLOCKED_TYPE -> stringResource(R.string.recents_blocked)
         else -> stringResource(R.string.recents_call_generic)
     }
     val callLabel = stringResource(R.string.recents_call_back, displayName)
@@ -547,12 +560,12 @@ private fun RecentRow(
             imageVector = when (entry.type) {
                 CallLog.Calls.INCOMING_TYPE -> Icons.Filled.CallReceived
                 CallLog.Calls.OUTGOING_TYPE -> Icons.Filled.CallMade
-                CallLog.Calls.MISSED_TYPE, CallLog.Calls.REJECTED_TYPE -> Icons.Filled.CallMissed
+                CallLog.Calls.MISSED_TYPE, CallLog.Calls.REJECTED_TYPE, CallLog.Calls.BLOCKED_TYPE -> Icons.Filled.CallMissed
                 else -> Icons.Filled.Call
             },
             contentDescription = typeLabel,
             tint = when (entry.type) {
-                CallLog.Calls.MISSED_TYPE, CallLog.Calls.REJECTED_TYPE -> MaterialTheme.colorScheme.error
+                CallLog.Calls.MISSED_TYPE, CallLog.Calls.REJECTED_TYPE, CallLog.Calls.BLOCKED_TYPE -> MaterialTheme.colorScheme.error
                 else -> MaterialTheme.colorScheme.onSurface
             },
             modifier = Modifier.size(24.dp),

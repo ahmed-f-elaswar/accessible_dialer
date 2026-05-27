@@ -52,7 +52,9 @@ import com.accessible.dialer.ui.contacts.ContactsScreen
 import com.accessible.dialer.ui.dialpad.DialpadScreen
 import com.accessible.dialer.ui.favorites.FavoritesScreen
 import com.accessible.dialer.ui.recents.RecentsScreen
+import com.accessible.dialer.ui.recents.RecentsViewModel
 import com.accessible.dialer.ui.settings.SettingsScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 private enum class Tab(val labelRes: Int) {
     Dialpad(R.string.tab_dialpad),
@@ -77,6 +79,7 @@ private enum class Tab(val labelRes: Int) {
 fun DialerApp(
     initialNumber: String?,
     startOnContacts: Boolean = false,
+    startOnRecents: Boolean = false,
     permissionsGranted: Boolean,
     isDefaultDialer: Boolean,
     onRequestPermissions: () -> Unit,
@@ -84,12 +87,14 @@ fun DialerApp(
     onPlaceCall: (String) -> Unit,
 ) {
     // Initial tab priority:
-    //   1. explicit intent override (startOnContacts) — viewing contacts from outside,
+    //   1. explicit intent override (startOnContacts / startOnRecents) — viewing
+    //      contacts or missed-call notification deep-link from outside,
     //   2. tel: dial intent — always land on Dialpad with the number prefilled,
     //   3. last tab the user was on (persisted across cold-starts),
     //   4. Dialpad as a safe default for a dialer.
     var currentTab by rememberSaveable {
         val initial = when {
+            startOnRecents -> Tab.Recents
             startOnContacts -> Tab.Contacts
             !initialNumber.isNullOrEmpty() -> Tab.Dialpad
             else -> com.accessible.dialer.settings.SettingsRepository.lastTab.value
@@ -120,6 +125,16 @@ fun DialerApp(
     // Spelling-variant normalizer (Mohamed / Mohammad / Mahamed → one canonical).
     var showNameNormalize by rememberSaveable { mutableStateOf(false) }
     var showBlocked by rememberSaveable { mutableStateOf(false) }
+    // Per-SIM ringtone overrides — pulled out of the Calling section into their
+    // own sub-screen so the main settings list stays short on multi-SIM devices.
+    var showRingtones by rememberSaveable { mutableStateOf(false) }
+    // Top-level settings sub-screens. Each row in SettingsScreen now opens one
+    // of these instead of expanding inline.
+    var showDisplay by rememberSaveable { mutableStateOf(false) }
+    var showCalling by rememberSaveable { mutableStateOf(false) }
+    var showAccessibility by rememberSaveable { mutableStateOf(false) }
+    var showTools by rememberSaveable { mutableStateOf(false) }
+    var showBlocking by rememberSaveable { mutableStateOf(false) }
     // Settings → Tools → "Where contacts are stored": full-screen account list +
     // per-account contact picker with bulk delete / move.
     var showStorage by rememberSaveable { mutableStateOf(false) }
@@ -127,9 +142,55 @@ fun DialerApp(
     var contactsReloadKey by rememberSaveable { mutableStateOf(0) }
     // Settings → Help → User guide: full-screen scrollable help content.
     var showUserGuide by rememberSaveable { mutableStateOf(false) }
-    // Bumped after "Clear all call history" so RecentsScreen reloads and shows
-    // the now-empty log without waiting for a tab switch.
+    // Bumped after destructive call-log changes (e.g. "Clear all call history") so
+    // RecentsScreen reacts even when a targeted in-memory edit isn't enough. Routine
+    // additions (a placed call ending, a renamed contact) take the targeted-edit
+    // paths on `recentsVm` below and DO NOT bump this key — they don't need a full
+    // re-query and shouldn't make the LazyColumn flash blank.
     var recentsReloadKey by rememberSaveable { mutableStateOf(0) }
+    // Activity-scoped ViewModel shared with RecentsScreen (which also calls
+    // `viewModel()` and receives the same instance). Declared up here so the call-
+    // end watcher below can drive incremental list edits directly instead of going
+    // through a coarse reloadKey bump.
+    val recentsVm: RecentsViewModel = viewModel()
+    val prewarmContext = LocalContext.current
+    // Watch the global call state and merge just the new call-log row(s) whenever
+    // an active call tears down (transitions back to None). The system writes the
+    // row asynchronously, so a tiny grace delay gives the provider time to commit
+    // before we query. `mergeRecent` fetches only rows with _ID greater than what's
+    // currently on screen and either replaces the matching contact's row in place
+    // or prepends a new one — so the LazyColumn keeps its scroll and doesn't flash
+    // through an empty state the way a full reload would.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        var wasInCall = false
+        com.accessible.dialer.call.OngoingCallHolder.state.collect { s ->
+            val inCall = s !is com.accessible.dialer.call.CallState.None
+            if (wasInCall && !inCall) {
+                kotlinx.coroutines.delay(400)
+                if (com.accessible.dialer.util.DialerPermissions.granted(
+                        prewarmContext, android.Manifest.permission.READ_CALL_LOG
+                    )
+                ) {
+                    recentsVm.mergeRecent(prewarmContext)
+                }
+            }
+            wasInCall = inCall
+        }
+    }
+    // Pre-warm the call log in the background as soon as permissions are granted,
+    // so by the time the user opens the Recents tab the data is already cached in
+    // the (activity-scoped) ViewModel. Without this, the call log scan + PhoneLookup
+    // queries only start after the Recents tab is first composed, which gave the
+    // user a perceptible blank pause on tab switch.
+    androidx.compose.runtime.LaunchedEffect(permissionsGranted) {
+        if (permissionsGranted &&
+            com.accessible.dialer.util.DialerPermissions.granted(
+                prewarmContext, android.Manifest.permission.READ_CALL_LOG
+            )
+        ) {
+            recentsVm.ensureLoaded(prewarmContext)
+        }
+    }
     // Toggled by the overflow menu's "Clear all call history" item; renders a
     // destructive confirmation dialog before any rows are deleted.
     var showClearHistoryConfirm by remember { mutableStateOf(false) }
@@ -173,10 +234,11 @@ fun DialerApp(
                 editorPrefillNumber = null
                 contactsReloadKey += 1
                 // Recents shows the contact's display name resolved from the
-                // CallLog cache, which the system refreshes lazily. Force the
-                // Recents tab to re-query so a freshly-saved or freshly-renamed
-                // contact appears in history immediately.
-                recentsReloadKey += 1
+                // CallLog cache, which the system refreshes lazily. Re-run the
+                // live PhoneLookup overlay against the existing on-screen rows
+                // so the freshly-saved/renamed contact's name updates in place
+                // — no full call-log re-query, no scroll reset.
+                recentsVm.refreshDisplayNames(prewarmContext)
                 if (id > 0L) {
                     // Came from details — stay on details so the user sees updates.
                     detailsContactId = savedId
@@ -244,6 +306,60 @@ fun DialerApp(
         return
     }
 
+    if (showRingtones) {
+        androidx.activity.compose.BackHandler { showRingtones = false }
+        com.accessible.dialer.ui.settings.RingtonesScreen(
+            onBack = { showRingtones = false },
+        )
+        return
+    }
+
+    if (showDisplay) {
+        androidx.activity.compose.BackHandler { showDisplay = false }
+        com.accessible.dialer.ui.settings.DisplayScreen(
+            onBack = { showDisplay = false },
+        )
+        return
+    }
+
+    if (showCalling) {
+        androidx.activity.compose.BackHandler { showCalling = false }
+        com.accessible.dialer.ui.settings.CallingScreen(
+            onBack = { showCalling = false },
+            onOpenRingtones = { showRingtones = true },
+        )
+        return
+    }
+
+    if (showAccessibility) {
+        androidx.activity.compose.BackHandler { showAccessibility = false }
+        com.accessible.dialer.ui.settings.AccessibilityScreen(
+            onBack = { showAccessibility = false },
+        )
+        return
+    }
+
+    if (showTools) {
+        androidx.activity.compose.BackHandler { showTools = false }
+        com.accessible.dialer.ui.settings.ToolsScreen(
+            onBack = { showTools = false },
+            onOpenDuplicates = { showDuplicates = true },
+            onOpenStorage = { showStorage = true },
+            onOpenNameFix = { showNameFix = true },
+            onOpenNameNormalize = { showNameNormalize = true },
+        )
+        return
+    }
+
+    if (showBlocking) {
+        androidx.activity.compose.BackHandler { showBlocking = false }
+        com.accessible.dialer.ui.settings.BlockingScreen(
+            onBack = { showBlocking = false },
+            onOpenBlocked = { showBlocked = true },
+        )
+        return
+    }
+
     if (showStorage) {
         androidx.activity.compose.BackHandler { showStorage = false }
         com.accessible.dialer.ui.storage.StorageLocationsScreen(
@@ -285,8 +401,10 @@ fun DialerApp(
                     android.widget.Toast.makeText(
                         clearHistoryContext, msg, android.widget.Toast.LENGTH_SHORT
                     ).show()
-                    // Force RecentsScreen to re-query the (now-empty) call log.
-                    recentsReloadKey += 1
+                    // We just emptied the system call log; mirror that in the
+                    // in-memory list without a re-query (which would just
+                    // return zero rows anyway).
+                    recentsVm.clearLocally()
                 }) { Text(stringResource(R.string.clear_all_history_confirm)) }
             },
             dismissButton = {
@@ -466,11 +584,11 @@ fun DialerApp(
             Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 if (showSettings) {
                     SettingsScreen(
-                        onOpenDuplicates = { showDuplicates = true },
-                        onOpenStorage = { showStorage = true },
-                        onOpenNameFix = { showNameFix = true },
-                        onOpenNameNormalize = { showNameNormalize = true },
-                        onOpenBlocked = { showBlocked = true },
+                        onOpenDisplay = { showDisplay = true },
+                        onOpenCalling = { showCalling = true },
+                        onOpenAccessibility = { showAccessibility = true },
+                        onOpenBlocking = { showBlocking = true },
+                        onOpenTools = { showTools = true },
                         onOpenUserGuide = { showUserGuide = true },
                     )
                 } else when (currentTab) {

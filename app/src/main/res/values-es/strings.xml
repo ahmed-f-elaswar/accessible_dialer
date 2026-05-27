@@ -61,6 +61,7 @@
     <string name="recents_outgoing">Saliente</string>
     <string name="recents_missed">Perdida</string>
     <string name="recents_rejected">Rechazada</string>
+    <string name="recents_blocked">Bloqueada</string>
     <string name="recents_call_back">Llamar a %1$s</string>
     <string name="recents_call_generic">Llamar</string>
     <string name="recents_load_more">Cargar llamadas antiguas</string>
@@ -78,6 +79,8 @@
     <string name="contacts_new">Nuevo contacto</string>
     <string name="action_edit_contact">Editar contacto</string>
     <string name="action_delete_contact">Eliminar contacto</string>
+    <string name="action_delete_recent">Eliminar última llamada</string>
+    <string name="action_delete_recent_all">Eliminar entrada completa</string>
     <string name="action_share_contact">Compartir contacto</string>
     <string name="action_block_number">Bloquear número</string>
     <string name="action_add_favorite">Añadir a favoritos</string>
@@ -96,7 +99,15 @@
     <string name="settings_section_contacts">Contactos</string>
     <string name="settings_section_calling">Llamadas</string>
     <string name="settings_section_accessibility">Accesibilidad</string>
+
+    <!-- Subtitles for the top-level settings list NavRows -->
+    <string name="settings_display_sub">Tema, tamaño de texto, lista de contactos</string>
+    <string name="settings_calling_sub">Cuenta predeterminada, tonos, marcación rápida</string>
+    <string name="settings_accessibility_sub">Háptica, lectura de dígitos, gestos de agitar</string>
+    <string name="settings_blocking_sub">Números bloqueados, desconocidos, horas tranquilas</string>
+    <string name="settings_tools_sub">Duplicados, almacenamiento, limpieza de nombres</string>
     <string name="settings_section_tools">Herramientas</string>
+    <string name="settings_section_block">Ajustes de bloqueo</string>
     <string name="settings_section_quiet">Horas tranquilas</string>
     <string name="settings_section_porting">Copia y transferencia</string>
     <string name="settings_section_about">Acerca de</string>
@@ -123,6 +134,8 @@
 
     <string name="settings_speed_dial">Marcación rápida</string>
     <string name="settings_speed_dial_sub">Mantén pulsado un dígito del teclado para llamar a un contacto</string>
+    <string name="settings_ringtones">Tonos</string>
+    <string name="settings_ringtones_sub">Elige un tono distinto para cada SIM</string>
     <string name="settings_speed_dial_slot_label">Dígito %1$d</string>
     <string name="settings_speed_dial_slot_empty">Ninguno</string>
     <string name="settings_speed_dial_clear">Borrar marcación rápida</string>

@@ -324,7 +324,7 @@ private fun AccountFilterDialog(
         // bucket doesn't outrank a real Google account just because of name.
         counts.entries.sortedWith(
             compareByDescending<Map.Entry<String, Int>> { it.value }
-                .thenBy { friendlyAccountLabel(it.key).lowercase() }
+                .thenBy { friendlyAccountLabel(context, it.key).lowercase() }
         )
     }
     val selection = remember { mutableStateMapOf<String, Boolean>().apply {
@@ -343,7 +343,7 @@ private fun AccountFilterDialog(
                 Spacer(Modifier.size(8.dp))
                 options.forEach { (key, count) ->
                     val checked = selection[key] == true
-                    val label = friendlyAccountLabel(key)
+                    val label = friendlyAccountLabel(context, key)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -398,25 +398,14 @@ private fun AccountFilterDialog(
  * Returns a human-readable label for an "<account_type>|<account_name>" key. Keeps
  * the mapping inline (rather than in StorageLocationsScreen) so the dialog stays
  * self-contained.
+ *
+ * Delegates to [com.accessible.dialer.util.ContactAccounts.friendlyLabel] so the
+ * authenticator-based resolution kicks in for OEM / third-party account types we
+ * don't recognise statically (otherwise the dialog would show raw package names
+ * like "com.android.exchange").
  */
-internal fun friendlyAccountLabel(key: String): String {
-    val parts = key.split("|", limit = 2)
-    val type = parts.getOrNull(0)?.takeIf { it != "null" }
-    val name = parts.getOrNull(1)?.takeIf { it != "null" }
-    val typeLabel = when (type) {
-        null -> "Local / Phone only"
-        "com.google" -> "Google"
-        "com.osp.app.signin", "com.samsung.android.exchange" -> "Samsung"
-        "com.huawei.account" -> "Huawei"
-        "com.hihonor.id" -> "Honor"
-        "com.xiaomi" -> "Mi Account"
-        "com.whatsapp" -> "WhatsApp"
-        "org.telegram.messenger" -> "Telegram"
-        "vnd.sec.contact.sim", "com.android.contacts.sim" -> "SIM card"
-        else -> type
-    }
-    return if (name != null) "$typeLabel — $name" else typeLabel
-}
+internal fun friendlyAccountLabel(context: android.content.Context, key: String): String =
+    com.accessible.dialer.util.ContactAccounts.friendlyLabel(context, key)
 
 /**
  * Multi-field search:

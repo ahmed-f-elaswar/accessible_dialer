@@ -55,7 +55,6 @@ internal fun BlockedNumbersScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val rootView = LocalView.current
     val entries by BlockedNumbersRepository.entries.collectAsStateWithLifecycle()
-    val blockMode by SettingsRepository.blockMode.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { BlockedNumbersRepository.refresh(context) }
@@ -85,13 +84,6 @@ internal fun BlockedNumbersScreen(onBack: () -> Unit) {
         },
     ) { inner ->
         LazyColumn(contentPadding = inner, modifier = Modifier.fillMaxSize()) {
-            item("mode_header") {
-                BlockModeSection(
-                    current = blockMode,
-                    onSelect = { SettingsRepository.setBlockMode(it) },
-                )
-                HorizontalDivider()
-            }
             if (entries.isEmpty()) {
                 item("empty") {
                     Box(
@@ -194,56 +186,4 @@ private fun AddBlockedNumberDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
-}
-
-@Composable
-private fun BlockModeSection(
-    current: SettingsRepository.BlockMode,
-    onSelect: (SettingsRepository.BlockMode) -> Unit,
-) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text(
-            stringResource(R.string.block_mode_header),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        BlockModeRow(
-            selected = current == SettingsRepository.BlockMode.Reject,
-            title = stringResource(R.string.block_mode_reject),
-            subtitle = stringResource(R.string.block_mode_reject_sub),
-            onSelect = { onSelect(SettingsRepository.BlockMode.Reject) },
-        )
-        BlockModeRow(
-            selected = current == SettingsRepository.BlockMode.SilentRing,
-            title = stringResource(R.string.block_mode_silent),
-            subtitle = stringResource(R.string.block_mode_silent_sub),
-            onSelect = { onSelect(SettingsRepository.BlockMode.SilentRing) },
-        )
-    }
-}
-
-@Composable
-private fun BlockModeRow(
-    selected: Boolean,
-    title: String,
-    subtitle: String,
-    onSelect: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Column(Modifier.padding(start = 8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
 }

@@ -120,7 +120,7 @@ object ContactAccounts {
         countsByKey.getOrPut(LOCAL_KEY) { mutableSetOf() }
 
         return countsByKey.entries
-            .map { (k, set) -> Entry(k, friendlyLabel(k), set.size) }
+            .map { (k, set) -> Entry(k, friendlyLabel(context, k), set.size) }
             // Sort: nonzero counts first (descending), then alphabetical by label.
             .sortedWith(compareByDescending<Entry> { it.count }.thenBy { it.label.lowercase() })
     }
@@ -129,24 +129,106 @@ object ContactAccounts {
      * Same vocabulary as [com.accessible.dialer.ui.contacts.friendlyAccountLabel]
      * but local to this util so callers outside the contacts package don't drag in
      * a UI dependency. Kept in sync with that function by tests / by code review.
+     *
+     * String-only fallback used when no [Context] is available. Unknown account
+     * types fall through to the raw type string (e.g. "com.android.exchange") —
+     * prefer the [friendlyLabel] overload that takes a [Context] so we can ask
+     * [AccountManager] for the authenticator's human-readable label.
      */
-    fun friendlyLabel(key: String): String {
+    fun friendlyLabel(key: String): String = staticLabel(key)
+
+    /**
+     * Resolve a friendly label for an account key, falling back to the
+     * authenticator's own human-readable label (the same string Android shows in
+     * Settings → Accounts) for types we don't recognise statically. This avoids
+     * leaking raw package-name strings like "com.android.exchange" or
+     * "com.sec.android.app.contacts.sim" into the storage picker UI.
+     *
+     * AuthenticatorDescription lookups are cached per type to keep the per-row
+     * cost negligible — list() / editor compose every recomposition for a
+     * many-account device would otherwise hammer PackageManager.
+     */
+    fun friendlyLabel(context: Context, key: String): String {
         val parts = key.split("|", limit = 2)
         val type = parts.getOrNull(0)?.takeIf { it != "null" }
         val name = parts.getOrNull(1)?.takeIf { it != "null" }
-        val typeLabel = when (type) {
-            null -> "Local / Phone only"
-            "com.google" -> "Google"
-            "com.osp.app.signin", "com.samsung.android.exchange" -> "Samsung"
-            "com.huawei.account" -> "Huawei"
-            "com.hihonor.id" -> "Honor"
-            "com.xiaomi" -> "Mi Account"
-            "com.whatsapp" -> "WhatsApp"
-            "org.telegram.messenger" -> "Telegram"
-            "vnd.sec.contact.sim", "com.android.contacts.sim" -> "SIM card"
-            else -> type
-        }
+        val typeLabel = friendlyTypeLabel(context, type)
+        // SIM accounts already encode the slot in the type label ("SIM 1" /
+        // "SIM 2"); appending the raw account name ("sim1", "sim2") would just
+        // produce noise like "SIM 1 — sim1". Skip the suffix in that case.
+        if (typeLabel.startsWith("SIM")) return typeLabel
         return if (name != null) "$typeLabel — $name" else typeLabel
+    }
+
+    private fun staticLabel(key: String): String {
+        val parts = key.split("|", limit = 2)
+        val type = parts.getOrNull(0)?.takeIf { it != "null" }
+        val name = parts.getOrNull(1)?.takeIf { it != "null" }
+        val typeLabel = staticTypeLabel(type) ?: (type ?: "Local / Phone only")
+        return if (name != null) "$typeLabel — $name" else typeLabel
+    }
+
+    private fun staticTypeLabel(type: String?): String? = when (type) {
+        null -> "Local / Phone only"
+        "com.google" -> "Google"
+        "com.osp.app.signin", "com.samsung.android.exchange" -> "Samsung"
+        "com.huawei.account" -> "Huawei"
+        "com.hihonor.id" -> "Honor"
+        "com.xiaomi" -> "Mi Account"
+        "com.whatsapp" -> "WhatsApp"
+        "org.telegram.messenger" -> "Telegram"
+        // SIM-card storage providers vary by OEM. Match the common ones and
+        // collapse them all to "SIM 1" / "SIM 2" / "SIM card" so the picker
+        // shows the slot rather than the vendor's package id.
+        "vnd.sec.contact.sim", "com.android.contacts.sim",
+        "com.sec.android.app.contacts.sim",
+        -> "SIM card"
+        "com.android.contacts.sim.sim1",
+        "com.android.huawei.sim", "com.android.hihonor.sim",
+        -> "SIM 1"
+        "com.android.contacts.sim.sim2",
+        "com.android.huawei.secondsim", "com.android.hihonor.secondsim",
+        -> "SIM 2"
+        else -> null
+    }
+
+    // Cache the per-type label resolution so list() / picker rows don't hit
+    // PackageManager once per row. Cleared lazily — entries are immutable once
+    // an authenticator is installed, and a brand-new authenticator type just
+    // means we miss it for one app session, which is acceptable.
+    private val typeLabelCache = HashMap<String, String>()
+
+    private fun friendlyTypeLabel(context: Context, type: String?): String {
+        if (type == null) return "Local / Phone only"
+        staticTypeLabel(type)?.let { return it }
+        synchronized(typeLabelCache) {
+            typeLabelCache[type]?.let { return it }
+        }
+        // Step 1: ask AccountManager for the authenticator whose `type` matches.
+        // This works for any installed authenticator we can see (manifest
+        // <queries> grants visibility through Android 11+ package filtering).
+        val viaAuthenticator = runCatching {
+            val am = AccountManager.get(context)
+            val descriptor = am.authenticatorTypes.firstOrNull { it.type == type }
+                ?: return@runCatching null
+            if (descriptor.labelId == 0 || descriptor.packageName.isNullOrBlank()) {
+                return@runCatching null
+            }
+            val pm = context.packageManager
+            val res = pm.getResourcesForApplication(descriptor.packageName)
+            res.getString(descriptor.labelId)?.takeIf { it.isNotBlank() }
+        }.getOrNull()
+        // Step 2: many account types ARE the owning package name (e.g.
+        // "com.google.android.apps.tachyon"). Fall back to the app's launcher
+        // label so the picker shows "Meet" instead of the raw package id.
+        val viaApplicationInfo = viaAuthenticator ?: runCatching {
+            val pm = context.packageManager
+            val info = pm.getApplicationInfo(type, 0)
+            pm.getApplicationLabel(info).toString().takeIf { it.isNotBlank() }
+        }.getOrNull()
+        val label = viaApplicationInfo ?: type
+        synchronized(typeLabelCache) { typeLabelCache[type] = label }
+        return label
     }
 
     /**

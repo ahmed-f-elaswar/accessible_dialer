@@ -22,12 +22,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -509,6 +513,7 @@ private fun AddButton(label: String, onClick: () -> Unit) {
  * When not editable we still render the row (so the user knows *where* the
  * contact lives) but disable the click + dropdown.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AccountSelectorRow(
     accountKey: String,
@@ -528,42 +533,61 @@ private fun AccountSelectorRow(
             com.accessible.dialer.util.ContactAccounts.list(context)
         }
     }
-    val currentLabel = com.accessible.dialer.util.ContactAccounts.friendlyLabel(accountKey)
+    val currentLabel = com.accessible.dialer.util.ContactAccounts.friendlyLabel(context, accountKey)
     SectionLabel(stringResource(R.string.editor_section_account))
-    Box {
+    if (!editable) {
+        // Read-only display — no picker semantics, no focusable trailing icon.
+        // TalkBack reads "<field label>, <current account>".
         OutlinedTextField(
             value = currentLabel,
             onValueChange = {},
             readOnly = true,
-            enabled = editable,
+            enabled = false,
             label = { Text(stringResource(R.string.editor_field_account)) },
-            trailingIcon = {
-                if (editable) {
-                    val openLabel = stringResource(R.string.editor_pick_account_title)
-                    IconButton(
-                        onClick = { expanded = true },
-                        modifier = Modifier.semantics { contentDescription = openLabel },
-                    ) {
-                        Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-                    }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (editable) {
-                    Modifier.clickable { expanded = true }
-                } else Modifier),
+            modifier = Modifier.fillMaxWidth(),
         )
-        DropdownMenu(
+        return
+    }
+    val openLabel = stringResource(R.string.editor_pick_account_title)
+    // ExposedDropdownMenuBox wires the anchor's semantics so TalkBack announces
+    // the field as a popup-menu trigger (role = DropdownList) instead of a plain
+    // text input. The `menuAnchor` modifier is what carries that role + the
+    // double-tap-to-open action; without it the field reads as a disabled text
+    // field. Each menu item carries an explicit `selected` flag so TalkBack
+    // announces "selected" on the current account.
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        OutlinedTextField(
+            value = currentLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(stringResource(R.string.editor_field_account)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+                .semantics { contentDescription = openLabel },
+        )
+        ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
             entries.forEach { entry ->
+                val isSelected = entry.key == accountKey
                 DropdownMenuItem(
                     text = { Text(entry.label) },
                     onClick = {
                         expanded = false
                         onChange(entry.key)
+                    },
+                    trailingIcon = if (isSelected) {
+                        { Icon(Icons.Filled.Check, contentDescription = null) }
+                    } else null,
+                    modifier = Modifier.semantics {
+                        selected = isSelected
                     },
                 )
             }

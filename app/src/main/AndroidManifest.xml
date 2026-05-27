@@ -123,5 +123,19 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <!-- Account authenticators that own contact storage accounts so we can
+             resolve a human label (the same string Settings → Accounts shows)
+             via AccountManager.getAuthenticatorTypes() / PackageManager. Without
+             this, Android 11+ package visibility hides the authenticator and the
+             editor's "Saved in" dropdown falls back to raw package names. -->
+        <intent>
+            <action android:name="android.accounts.AccountAuthenticator" />
+        </intent>
+        <!-- Sync adapters tied to a contact storage account use this intent as
+             their service entry point; we read it to resolve a label when a
+             package ships a sync adapter without a separate authenticator. -->
+        <intent>
+            <action android:name="android.content.SyncAdapter" />
+        </intent>
     </queries>
 </manifest>

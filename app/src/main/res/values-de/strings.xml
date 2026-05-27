@@ -61,6 +61,7 @@
     <string name="recents_outgoing">Ausgehend</string>
     <string name="recents_missed">Verpasst</string>
     <string name="recents_rejected">Abgelehnt</string>
+    <string name="recents_blocked">Blockiert</string>
     <string name="recents_call_back">%1$s anrufen</string>
     <string name="recents_call_generic">Anrufen</string>
     <string name="recents_load_more">Ältere Anrufe laden</string>
@@ -78,6 +79,8 @@
     <string name="contacts_new">Neuer Kontakt</string>
     <string name="action_edit_contact">Kontakt bearbeiten</string>
     <string name="action_delete_contact">Kontakt löschen</string>
+    <string name="action_delete_recent">Letzten Anruf löschen</string>
+    <string name="action_delete_recent_all">Gesamten Eintrag löschen</string>
     <string name="action_share_contact">Kontakt teilen</string>
     <string name="action_block_number">Nummer blockieren</string>
     <string name="action_add_favorite">Zu Favoriten hinzufügen</string>
@@ -96,7 +99,15 @@
     <string name="settings_section_contacts">Kontakte</string>
     <string name="settings_section_calling">Anrufen</string>
     <string name="settings_section_accessibility">Barrierefreiheit</string>
+
+    <!-- Subtitles for the top-level settings list NavRows -->
+    <string name="settings_display_sub">Design, Textgröße, Kontaktliste</string>
+    <string name="settings_calling_sub">Standardkonto, Klingeltöne, Kurzwahl</string>
+    <string name="settings_accessibility_sub">Haptik, Ziffernansage, Schüttelgesten</string>
+    <string name="settings_blocking_sub">Blockierte Nummern, unbekannte Anrufer, Ruhezeiten</string>
+    <string name="settings_tools_sub">Duplikate, Speicher, Namen bereinigen</string>
     <string name="settings_section_tools">Werkzeuge</string>
+    <string name="settings_section_block">Blockier-Einstellungen</string>
     <string name="settings_section_quiet">Ruhezeiten</string>
     <string name="settings_section_porting">Sicherung und Übertragung</string>
     <string name="settings_section_about">Über</string>
@@ -123,6 +134,8 @@
 
     <string name="settings_speed_dial">Kurzwahl</string>
     <string name="settings_speed_dial_sub">Lange auf eine Ziffer drücken, um einen Kontakt anzurufen</string>
+    <string name="settings_ringtones">Klingeltöne</string>
+    <string name="settings_ringtones_sub">Wähle für jede SIM einen eigenen Klingelton</string>
     <string name="settings_speed_dial_slot_label">Ziffer %1$d</string>
     <string name="settings_speed_dial_slot_empty">Keiner</string>
     <string name="settings_speed_dial_clear">Kurzwahl löschen</string>
@@ -137,6 +150,10 @@
     <string name="settings_shake_to_call_picker_title">Kontakt für Schütteln zum Anrufen wählen</string>
     <string name="settings_shake_to_answer">Schütteln zum Annehmen</string>
     <string name="settings_shake_to_answer_sub">Schüttle das Telefon, um eingehende Anrufe anzunehmen</string>
+    <string name="settings_shake_to_end">Schütteln zum Beenden</string>
+    <string name="settings_shake_to_end_sub">Schüttle das Telefon während eines Anrufs, um aufzulegen</string>
+    <string name="settings_proximity_speaker">Lautsprecher beim Entfernen vom Ohr</string>
+    <string name="settings_proximity_speaker_sub">Schaltet den Lautsprecher ein, wenn du das Telefon vom Ohr entfernst, und wieder aus, wenn du es zurückbringst</string>
 
     <!-- User guide -->
     <string name="settings_section_help">Hilfe</string>

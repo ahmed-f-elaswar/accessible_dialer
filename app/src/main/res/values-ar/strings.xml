@@ -67,6 +67,7 @@
     <string name="recents_outgoing">صادرة</string>
     <string name="recents_missed">فائتة</string>
     <string name="recents_rejected">مرفوضة</string>
+    <string name="recents_blocked">محظورة</string>
     <string name="recents_call_back">اتصال %1$s</string>
     <string name="recents_call_generic">اتصال</string>
     <string name="recents_load_more">تحميل مكالمات أقدم</string>
@@ -85,6 +86,8 @@
     <string name="contacts_new">جهة اتصال جديدة</string>
     <string name="action_edit_contact">تعديل جهة الاتصال</string>
     <string name="action_delete_contact">حذف جهة الاتصال</string>
+    <string name="action_delete_recent">حذف آخر مكالمة</string>
+    <string name="action_delete_recent_all">حذف السجل بالكامل</string>
     <string name="action_share_contact">مشاركة جهة الاتصال</string>
     <string name="action_block_number">حظر الرقم</string>
     <string name="action_add_favorite">إضافة إلى المفضلة</string>
@@ -105,10 +108,18 @@
     <string name="settings_section_calling">الاتصال</string>
     <string name="settings_section_accessibility">إمكانية الوصول</string>
     <string name="settings_section_tools">أدوات</string>
+    <string name="settings_section_block">إعدادات الحظر</string>
     <string name="settings_section_quiet">ساعات الهدوء</string>
     <string name="settings_section_porting">النسخ الاحتياطي والنقل</string>
     <string name="settings_section_about">حول</string>
     <string name="settings_section_shake">إيماءات الهز</string>
+
+    <!-- Subtitles for the top-level settings list NavRows -->
+    <string name="settings_display_sub">المظهر وحجم الخط وقائمة جهات الاتصال</string>
+    <string name="settings_calling_sub">الحساب الافتراضي والنغمات والاتصال السريع</string>
+    <string name="settings_accessibility_sub">الاهتزاز ونطق الأرقام وإيماءات الهز</string>
+    <string name="settings_blocking_sub">الأرقام المحظورة والمتصلون المجهولون وساعات الهدوء</string>
+    <string name="settings_tools_sub">البحث عن المكرر والتخزين وتنظيف الأسماء</string>
 
     <string name="settings_theme">المظهر</string>
     <string name="settings_theme_system">حسب النظام</string>
@@ -133,6 +144,8 @@
     <!-- Speed dial -->
     <string name="settings_speed_dial">الاتصال السريع</string>
     <string name="settings_speed_dial_sub">اضغط مطولاً على رقم في لوحة الأرقام للاتصال بجهة اتصال</string>
+    <string name="settings_ringtones">النغمات</string>
+    <string name="settings_ringtones_sub">اختر نغمة مختلفة لكل شريحة</string>
     <string name="settings_speed_dial_slot_label">الرقم %1$d</string>
     <string name="settings_speed_dial_slot_empty">لا شيء</string>
     <string name="settings_speed_dial_clear">مسح الاتصال السريع</string>

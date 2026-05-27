@@ -254,7 +254,7 @@ private fun StorageAccountDetail(
                 Text(
                     if (inSelectMode)
                         stringResource(R.string.storage_selected_n, selected.size)
-                    else ContactAccounts.friendlyLabel(accountKey),
+                    else ContactAccounts.friendlyLabel(context, accountKey),
                 )
             },
             navigationIcon = {

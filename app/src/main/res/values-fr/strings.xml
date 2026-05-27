@@ -66,6 +66,7 @@
     <string name="recents_outgoing">Sortant</string>
     <string name="recents_missed">Manqué</string>
     <string name="recents_rejected">Refusé</string>
+    <string name="recents_blocked">Bloqué</string>
     <string name="recents_call_back">Appeler %1$s</string>
     <string name="recents_call_generic">Appeler</string>
     <string name="recents_load_more">Charger des appels plus anciens</string>
@@ -84,6 +85,8 @@
     <string name="contacts_new">Nouveau contact</string>
     <string name="action_edit_contact">Modifier le contact</string>
     <string name="action_delete_contact">Supprimer le contact</string>
+    <string name="action_delete_recent">Supprimer le dernier appel</string>
+    <string name="action_delete_recent_all">Supprimer toute l’entrée</string>
     <string name="action_share_contact">Partager le contact</string>
     <string name="action_block_number">Bloquer le numéro</string>
     <string name="action_add_favorite">Ajouter aux favoris</string>
@@ -103,7 +106,15 @@
     <string name="settings_section_contacts">Contacts</string>
     <string name="settings_section_calling">Appels</string>
     <string name="settings_section_accessibility">Accessibilité</string>
+
+    <!-- Subtitles for the top-level settings list NavRows -->
+    <string name="settings_display_sub">Thème, taille du texte, liste de contacts</string>
+    <string name="settings_calling_sub">Compte par défaut, sonneries, numérotation rapide</string>
+    <string name="settings_accessibility_sub">Vibrations, lecture des chiffres, gestes de secousse</string>
+    <string name="settings_blocking_sub">Numéros bloqués, appelants inconnus, heures calmes</string>
+    <string name="settings_tools_sub">Doublons, stockage, nettoyage des noms</string>
     <string name="settings_section_tools">Outils</string>
+    <string name="settings_section_block">Paramètres de blocage</string>
     <string name="settings_section_quiet">Heures de silence</string>
     <string name="settings_section_porting">Sauvegarde et transfert</string>
     <string name="settings_section_about">À propos</string>
@@ -132,6 +143,8 @@
     <!-- Speed dial -->
     <string name="settings_speed_dial">Numérotation rapide</string>
     <string name="settings_speed_dial_sub">Appui long sur un chiffre du clavier pour appeler un contact</string>
+    <string name="settings_ringtones">Sonneries</string>
+    <string name="settings_ringtones_sub">Choisissez une sonnerie distincte pour chaque SIM</string>
     <string name="settings_speed_dial_slot_label">Chiffre %1$d</string>
     <string name="settings_speed_dial_slot_empty">Aucun</string>
     <string name="settings_speed_dial_clear">Effacer la numérotation rapide</string>

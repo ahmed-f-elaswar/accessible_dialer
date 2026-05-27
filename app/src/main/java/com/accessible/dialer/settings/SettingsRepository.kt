@@ -52,6 +52,12 @@ object SettingsRepository {
     private const val KEY_SHAKE_CALL_NUMBER = "shake_to_call_number"
     // Whether shaking the phone while a call is ringing answers the call.
     private const val KEY_SHAKE_ANSWER_ENABLED = "shake_to_answer_enabled"
+    // Whether shaking the phone while a call is connected ends the call.
+    private const val KEY_SHAKE_END_ENABLED = "shake_to_end_enabled"
+    // Auto-enable the speakerphone when the proximity sensor reports the phone is
+    // far from the user's face (e.g. the user moved it away from their ear); auto-
+    // disable when the phone returns close.
+    private const val KEY_PROXIMITY_SPEAKER_ENABLED = "proximity_speaker_enabled"
     enum class ThemeMode { System, Light, Dark }
     enum class TextScale(val factor: Float) {
         Small(0.9f), Default(1.0f), Large(1.2f), ExtraLarge(1.45f);
@@ -158,6 +164,12 @@ object SettingsRepository {
     private val _shakeToAnswerEnabled = MutableStateFlow(false)
     val shakeToAnswerEnabled: StateFlow<Boolean> get() = _shakeToAnswerEnabled.asStateFlow()
 
+    private val _shakeToEndEnabled = MutableStateFlow(false)
+    val shakeToEndEnabled: StateFlow<Boolean> get() = _shakeToEndEnabled.asStateFlow()
+
+    private val _proximitySpeakerEnabled = MutableStateFlow(false)
+    val proximitySpeakerEnabled: StateFlow<Boolean> get() = _proximitySpeakerEnabled.asStateFlow()
+
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -205,6 +217,8 @@ object SettingsRepository {
         _shakeToCallEnabled.value = prefs.getBoolean(KEY_SHAKE_CALL_ENABLED, false)
         _shakeToCallNumber.value = prefs.getString(KEY_SHAKE_CALL_NUMBER, "") ?: ""
         _shakeToAnswerEnabled.value = prefs.getBoolean(KEY_SHAKE_ANSWER_ENABLED, false)
+        _shakeToEndEnabled.value = prefs.getBoolean(KEY_SHAKE_END_ENABLED, false)
+        _proximitySpeakerEnabled.value = prefs.getBoolean(KEY_PROXIMITY_SPEAKER_ENABLED, false)
     }
     fun setTheme(mode: ThemeMode) { _theme.value = mode; prefs.edit { putString(KEY_THEME, mode.name) } }
     fun setTextScale(s: TextScale) { _textScale.value = s; prefs.edit { putString(KEY_TEXT_SCALE, s.name) } }
@@ -309,5 +323,15 @@ object SettingsRepository {
     fun setShakeToAnswerEnabled(v: Boolean) {
         _shakeToAnswerEnabled.value = v
         prefs.edit { putBoolean(KEY_SHAKE_ANSWER_ENABLED, v) }
+    }
+
+    fun setShakeToEndEnabled(v: Boolean) {
+        _shakeToEndEnabled.value = v
+        prefs.edit { putBoolean(KEY_SHAKE_END_ENABLED, v) }
+    }
+
+    fun setProximitySpeakerEnabled(v: Boolean) {
+        _proximitySpeakerEnabled.value = v
+        prefs.edit { putBoolean(KEY_PROXIMITY_SPEAKER_ENABLED, v) }
     }
 }

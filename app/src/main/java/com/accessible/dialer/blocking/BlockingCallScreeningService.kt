@@ -42,17 +42,27 @@ class BlockingCallScreeningService : CallScreeningService() {
                     SettingsRepository.BlockMode.SilentRing ->
                         // Caller hears normal ringing; my phone stays silent. After their
                         // ring timeout the carrier routes them to voicemail naturally.
+                        // We still record the attempt in the system call log so the user
+                        // can see who tried to reach them.
+                        //
+                        // We deliberately do NOT set setSkipNotification here: combined with
+                        // disallowCall=false some OEMs (notably Huawei) treat that pair as
+                        // "drop the call silently" — i.e. an auto-reject from the caller's
+                        // point of view, which defeats the whole purpose of this mode. Just
+                        // setting setSilenceCall(true) is enough: the system suppresses its
+                        // own ringer/notification, the call still flows through to our
+                        // InCallService, and DialerInCallService skips our in-app ringer +
+                        // UI when it sees the number is blocked + mode is SilentRing.
                         CallResponse.Builder()
+                            .setDisallowCall(false)
                             .setSilenceCall(true)
-                            .setSkipCallLog(true)
-                            .setSkipNotification(true)
                             .build()
                     SettingsRepository.BlockMode.Reject ->
                         CallResponse.Builder()
                             .setDisallowCall(true)
                             .setRejectCall(true)
-                            // Don't ring, don't show in any UI, don't add to the system call log.
-                            .setSkipCallLog(true)
+                            // Don't ring, don't show in any UI — but DO add to the system
+                            // call log so the user can review blocked attempts later.
                             .setSkipNotification(true)
                             .build()
                 }

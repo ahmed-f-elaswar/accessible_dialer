@@ -66,6 +66,20 @@ class RecentsViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Idempotent first-load helper. Used to pre-warm the call log from the app's
+     * root composable while the user is still on the Dialpad / Favorites tab, so
+     * the Recents tab paints immediately instead of triggering its scan on first
+     * compose. Returns without doing any work if a load is already in flight or
+     * if [entries] already holds rows.
+     */
+    fun ensureLoaded(context: Context) {
+        if (_loading.value) return
+        if (_entries.value.isNotEmpty()) return
+        if (rawOffset > 0) return
+        load(context)
+    }
+
     fun loadMore(context: Context) {
         if (_endReached.value || _loading.value) return
         viewModelScope.launch {
@@ -108,6 +122,16 @@ class RecentsViewModel : ViewModel() {
     fun deleteEntry(context: Context, id: Long) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
+                // Capture the visible entry (and its position) before mutating
+                // anything so we can swap in the next-most-recent call for the
+                // same number after the deletion. The recents list is deduped,
+                // so the visible row represents only the latest call for that
+                // contact — when the user picks "Delete latest call" they
+                // expect just that one call gone, with the previous call for
+                // the same contact taking its place.
+                val currentList = _entries.value
+                val targetIndex = currentList.indexOfFirst { it.id == id }
+                val target = targetIndex.takeIf { it >= 0 }?.let { currentList[it] }
                 runCatching {
                     context.contentResolver.delete(
                         CallLog.Calls.CONTENT_URI,
@@ -115,13 +139,89 @@ class RecentsViewModel : ViewModel() {
                         arrayOf(id.toString()),
                     )
                 }
-                // Drop the row from the in-memory list in place. We deliberately
-                // avoid resetPaging()+fetch here: replacing _entries with a fresh
-                // list causes LazyColumn to discard every item and snap scroll
-                // back to the top, which is what the user was complaining about.
-                removeEntriesByIds(setOf(id))
+                val replacement = target?.let { findNextCallForNumber(context, it, id) }
+                if (target != null && replacement != null) {
+                    // Substitute in place — same dedupe key, same list position,
+                    // so the LazyColumn keeps its scroll and the entry just
+                    // updates its timestamp / type to the previous call.
+                    val updated = _entries.value.toMutableList()
+                    val idx = updated.indexOfFirst { it.id == id }
+                    if (idx >= 0) {
+                        updated[idx] = replacement
+                        _entries.value = updated
+                    }
+                } else {
+                    // No earlier call for this number — fall back to dropping
+                    // the row from the in-memory list in place. We deliberately
+                    // avoid resetPaging()+fetch here: replacing _entries with a
+                    // fresh list causes LazyColumn to discard every item and
+                    // snap scroll back to the top.
+                    removeEntriesByIds(setOf(id))
+                }
             }
         }
+    }
+
+    /**
+     * Find the next-most-recent call-log row for the same contact as [target]
+     * (matched by the same last-7-digits rule [dedupeKey] uses), excluding the
+     * just-deleted [excludeId]. Returns a [CallLogEntry] suitable for swapping
+     * into the in-memory list, or null when no earlier call exists. Reuses
+     * [target.displayName] so we don't have to re-run PhoneLookup for the
+     * substitution; the name belongs to the number, not the row.
+     */
+    private fun findNextCallForNumber(
+        context: Context,
+        target: CallLogEntry,
+        excludeId: Long,
+    ): CallLogEntry? {
+        val number = target.number.trim()
+        if (number.isEmpty()) return null
+        val digits = number.filter { it.isDigit() }
+        val suffix = if (digits.length >= 7) digits.takeLast(7) else digits
+        if (suffix.isEmpty()) return null
+        val projection = arrayOf(
+            CallLog.Calls._ID,
+            CallLog.Calls.NUMBER,
+            CallLog.Calls.CACHED_NAME,
+            CallLog.Calls.TYPE,
+            CallLog.Calls.DATE,
+            CallLog.Calls.DURATION,
+        )
+        return runCatching {
+            context.contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                projection,
+                "${CallLog.Calls._ID}!=?",
+                arrayOf(excludeId.toString()),
+                "${CallLog.Calls.DATE} DESC",
+            )?.use { c ->
+                val idIdx = c.getColumnIndexOrThrow(CallLog.Calls._ID)
+                val numIdx = c.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+                val nameIdx = c.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME)
+                val typeIdx = c.getColumnIndexOrThrow(CallLog.Calls.TYPE)
+                val dateIdx = c.getColumnIndexOrThrow(CallLog.Calls.DATE)
+                val durIdx = c.getColumnIndexOrThrow(CallLog.Calls.DURATION)
+                while (c.moveToNext()) {
+                    val rowDigits = c.getString(numIdx).orEmpty().filter { it.isDigit() }
+                    val rowSuffix = if (rowDigits.length >= 7) rowDigits.takeLast(7) else rowDigits
+                    if (rowSuffix.isNotEmpty() && rowSuffix == suffix) {
+                        val date = c.getLong(dateIdx)
+                        val cachedName = c.getString(nameIdx).takeIf { !it.isNullOrBlank() }
+                        return@use CallLogEntry(
+                            id = c.getLong(idIdx),
+                            number = c.getString(numIdx).orEmpty(),
+                            displayName = target.displayName ?: cachedName,
+                            type = c.getInt(typeIdx),
+                            date = date,
+                            relativeTime = formatRelative(Date(date)),
+                            duration = c.getLong(durIdx),
+                        )
+                    }
+                }
+                null
+            }
+        }.getOrNull()
     }
 
     /**
@@ -275,6 +375,152 @@ class RecentsViewModel : ViewModel() {
             }
         } finally {
             _loading.value = false
+        }
+    }
+
+    /**
+     * Incremental top-up after an event that may have appended new call-log rows
+     * (typically a placed/received call ending). Queries only rows whose [_ID] is
+     * greater than the highest [_ID] currently in [_entries] — so the work is
+     * proportional to "what's new" rather than "the whole log". Any new row whose
+     * dedupe key matches an existing entry replaces that entry in place (so the
+     * representative row's timestamp / type / duration updates without the
+     * LazyColumn discarding its scroll); rows for previously-unseen contacts are
+     * prepended to the top in DESC date order.
+     *
+     * Safe no-op when [_entries] is empty (first load hasn't happened yet) or no
+     * rows are newer than what we've already published.
+     */
+    fun mergeRecent(context: Context) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                val current = _entries.value
+                if (current.isEmpty()) {
+                    // Nothing on screen yet — let the normal load() path handle
+                    // first paint instead of partially populating from the top.
+                    return@withContext
+                }
+                val maxId = current.maxOf { it.id }
+                val projection = arrayOf(
+                    CallLog.Calls._ID,
+                    CallLog.Calls.NUMBER,
+                    CallLog.Calls.CACHED_NAME,
+                    CallLog.Calls.TYPE,
+                    CallLog.Calls.DATE,
+                    CallLog.Calls.DURATION,
+                )
+                val newRows = mutableListOf<CallLogEntry>()
+                runCatching {
+                    context.contentResolver.query(
+                        CallLog.Calls.CONTENT_URI,
+                        projection,
+                        "${CallLog.Calls._ID} > ?",
+                        arrayOf(maxId.toString()),
+                        "${CallLog.Calls.DATE} DESC",
+                    )?.use { c ->
+                        val idIdx = c.getColumnIndexOrThrow(CallLog.Calls._ID)
+                        val numIdx = c.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+                        val nameIdx = c.getColumnIndexOrThrow(CallLog.Calls.CACHED_NAME)
+                        val typeIdx = c.getColumnIndexOrThrow(CallLog.Calls.TYPE)
+                        val dateIdx = c.getColumnIndexOrThrow(CallLog.Calls.DATE)
+                        val durIdx = c.getColumnIndexOrThrow(CallLog.Calls.DURATION)
+                        while (c.moveToNext()) {
+                            val date = c.getLong(dateIdx)
+                            newRows += CallLogEntry(
+                                id = c.getLong(idIdx),
+                                number = c.getString(numIdx).orEmpty(),
+                                displayName = c.getString(nameIdx).takeIf { !it.isNullOrBlank() },
+                                type = c.getInt(typeIdx),
+                                date = date,
+                                relativeTime = formatRelative(Date(date)),
+                                duration = c.getLong(durIdx),
+                            )
+                        }
+                    }
+                }
+                if (newRows.isEmpty()) return@withContext
+
+                // Live PhoneLookup overlay for the few numbers in this delta.
+                val freshNames = livePhoneLookupNames(
+                    context,
+                    newRows.mapTo(LinkedHashSet()) { it.number }
+                        .filter { it.isNotBlank() },
+                    phoneLookupCache,
+                )
+                val overlaid = newRows.map { e ->
+                    val fresh = freshNames[e.number]
+                    if (!fresh.isNullOrBlank()) e.copy(displayName = fresh) else e
+                }
+
+                // Merge: replace-in-place when the dedupe key already exists,
+                // otherwise prepend. Walk newRows DESC so older-of-the-new rows
+                // can't "win" over newer ones for the same number.
+                val keyToIndex = HashMap<String, Int>(current.size)
+                current.forEachIndexed { i, e -> keyToIndex[dedupeKey(e)] = i }
+                val merged = current.toMutableList()
+                val prepended = ArrayList<CallLogEntry>()
+                for (e in overlaid) {
+                    val k = dedupeKey(e)
+                    val existingIdx = keyToIndex[k]
+                    if (existingIdx != null) {
+                        merged[existingIdx] = e
+                    } else if (seen.add(k)) {
+                        prepended += e
+                    }
+                }
+                _entries.value = if (prepended.isEmpty()) merged else prepended + merged
+                // Subsequent pages query by OFFSET on a DESC-by-date list. Newly
+                // appended rows shifted that list, so bump rawOffset to keep our
+                // pagination cursor pointing at the same row it pointed at before.
+                rawOffset += newRows.size
+            }
+        }
+    }
+
+    /**
+     * Empty the in-memory list and reset pagination state without touching the
+     * underlying CallLog provider. Used after a bulk delete (e.g. "Clear all call
+     * history") so the UI reflects the empty log immediately, instead of waiting
+     * for a full re-query that we know will return zero rows.
+     */
+    fun clearLocally() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                resetPaging()
+            }
+        }
+    }
+
+    /**
+     * Re-run the live PhoneLookup overlay against every entry currently on screen
+     * and apply any name changes in place. Used after the user saves or renames a
+     * contact, so the new name shows up in Recents without a full call-log
+     * re-query. We deliberately drop [phoneLookupCache] first so the just-saved
+     * contact isn't masked by a stale cache hit.
+     */
+    fun refreshDisplayNames(context: Context) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                val current = _entries.value
+                if (current.isEmpty()) return@withContext
+                phoneLookupCache.clear()
+                val freshNames = livePhoneLookupNames(
+                    context,
+                    current.mapTo(LinkedHashSet()) { it.number }
+                        .filter { it.isNotBlank() },
+                    phoneLookupCache,
+                )
+                if (freshNames.isEmpty()) return@withContext
+                var changed = false
+                val updated = current.map { e ->
+                    val fresh = freshNames[e.number]
+                    if (!fresh.isNullOrBlank() && fresh != e.displayName) {
+                        changed = true
+                        e.copy(displayName = fresh)
+                    } else e
+                }
+                if (changed) _entries.value = updated
+            }
         }
     }
 

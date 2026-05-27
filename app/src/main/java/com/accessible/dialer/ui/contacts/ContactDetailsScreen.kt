@@ -615,36 +615,49 @@ internal fun ContactDetailsScreen(
                         ) { showEraseHistoryConfirm = true }
                         HorizontalDivider()
                     }
-                }
-                if (d.phones.isNotEmpty()) {
-                    val anyBlocked = d.phones.any {
-                        com.accessible.dialer.blocking.BlockedNumbersRepository
-                            .isBlocked(context, it.number)
+                    if (d.phones.isNotEmpty()) {
+                        // Re-evaluate the blocked state whenever the repository's entry
+                        // list changes (refresh after block/unblock pushes a new snapshot
+                        // through this StateFlow). Without observing this, the action
+                        // label stays stuck on "Block number" after the user blocks the
+                        // contact from the same screen.
+                        val blockedEntries by com.accessible.dialer.blocking
+                            .BlockedNumbersRepository.entries.collectAsStateWithLifecycle()
+                        LaunchedEffect(contactId) {
+                            com.accessible.dialer.blocking.BlockedNumbersRepository
+                                .refresh(context)
+                        }
+                        val anyBlocked = remember(blockedEntries, d.phones) {
+                            d.phones.any {
+                                com.accessible.dialer.blocking.BlockedNumbersRepository
+                                    .isBlocked(context, it.number)
+                            }
+                        }
+                        ActionRow(
+                            icon = Icons.Filled.Notes,
+                            label = stringResource(
+                                if (anyBlocked) R.string.action_unblock_number
+                                else R.string.action_block_number
+                            ),
+                        ) {
+                            d.phones.forEach { p ->
+                                if (anyBlocked) ContactOps.unblockNumber(context, p.number)
+                                else ContactOps.blockNumber(context, p.number)
+                            }
+                        }
+                        HorizontalDivider()
                     }
                     ActionRow(
-                        icon = Icons.Filled.Notes,
-                        label = stringResource(
-                            if (anyBlocked) R.string.action_unblock_number
-                            else R.string.action_block_number
-                        ),
-                    ) {
-                        d.phones.forEach { p ->
-                            if (anyBlocked) ContactOps.unblockNumber(context, p.number)
-                            else ContactOps.blockNumber(context, p.number)
-                        }
-                    }
+                        icon = Icons.Filled.MergeType,
+                        label = stringResource(R.string.action_merge_contact),
+                    ) { showMergePicker = true }
                     HorizontalDivider()
+                    ActionRow(
+                        icon = Icons.Filled.Notes,
+                        label = stringResource(R.string.action_delete_contact),
+                        destructive = true,
+                    ) { showDeleteConfirm = true }
                 }
-                ActionRow(
-                    icon = Icons.Filled.MergeType,
-                    label = stringResource(R.string.action_merge_contact),
-                ) { showMergePicker = true }
-                HorizontalDivider()
-                ActionRow(
-                    icon = Icons.Filled.Notes,
-                    label = stringResource(R.string.action_delete_contact),
-                    destructive = true,
-                ) { showDeleteConfirm = true }
                 Spacer(Modifier.size(24.dp))
             }
         }
@@ -1090,6 +1103,7 @@ private fun RecentCallRow(rc: RecentCallItem) {
         CallLog.Calls.OUTGOING_TYPE -> stringResource(R.string.recents_outgoing)
         CallLog.Calls.MISSED_TYPE -> stringResource(R.string.recents_missed)
         CallLog.Calls.REJECTED_TYPE -> stringResource(R.string.recents_rejected)
+        CallLog.Calls.BLOCKED_TYPE -> stringResource(R.string.recents_blocked)
         else -> stringResource(R.string.recents_call_generic)
     }
     DetailRow(
@@ -1462,7 +1476,7 @@ private fun loadDetails(context: Context, contactId: Long): ContactDetails? {
             storageKeys += "$type|$accountName"
         }
     }
-    val storageLabels = storageKeys.map { friendlyAccountLabel(it) }
+    val storageLabels = storageKeys.map { friendlyAccountLabel(context, it) }
 
     return ContactDetails(
         id = contactId,
