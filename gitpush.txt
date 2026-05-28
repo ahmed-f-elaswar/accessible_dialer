@@ -1,9 +1,0 @@
-﻿git : To https://github.com/ahmed-f-elaswar/accessible_dialer.git
-At line:1 char:273
-+ ... -File gitcommit.txt -Encoding utf8; git push origin main 2>&1 | Out-F ...
-+                                         ~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (To https://gith...ible_dialer.git 
-   :String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-   3c5a33d..b38f7c5  main -> main
