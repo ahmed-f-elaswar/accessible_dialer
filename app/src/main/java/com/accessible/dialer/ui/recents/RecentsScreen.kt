@@ -10,6 +10,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,6 +79,14 @@ fun RecentsScreen(
     onShowInDialpad: (String) -> Unit,
     onOpenContactDetails: (Long) -> Unit = {},
     /**
+     * Same as [onOpenContactDetails] but also reports the call-log entry id the
+     * user triggered the action from, so the host can restore focus to that
+     * row on return. Defaults to delegating to [onOpenContactDetails] for
+     * callers that don't care about the focus-return signal.
+     */
+    onOpenContactDetailsForEntry: (entryId: Long, contactId: Long) -> Unit =
+        { _, cid -> onOpenContactDetails(cid) },
+    /**
      * Invoked from a Recents row's "Save as new contact" custom accessibility
      * action when the row's number does not resolve to a saved contact. The
      * caller is expected to open the contact editor with the number prefilled.
@@ -89,6 +99,14 @@ fun RecentsScreen(
      * tab switch / recomposition to pull fresh data.
      */
     reloadKey: Int = 0,
+    listState: LazyListState = rememberLazyListState(),
+    /**
+     * If non-null, after the list (re)composes the row with this entry id should
+     * claim TalkBack / input focus. Used to restore the "where you were" anchor
+     * when the user returns from the contact details screen.
+     */
+    returnFocusEntryId: Long? = null,
+    onReturnFocusConsumed: () -> Unit = {},
     vm: RecentsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -224,10 +242,17 @@ fun RecentsScreen(
             loading = loading,
             onLoadMore = { vm.loadMore(context) },
             onOpenContactDetails = onOpenContactDetails,
+            onOpenContactDetailsForEntry = onOpenContactDetailsForEntry,
             onDeleteContact = { id, name -> deleteContactRequest = id to name },
             onSaveAsContact = onSaveAsContact,
-            focusTargetId = focusAfterDeleteId,
-            onFocusConsumed = { focusAfterDeleteId = null },
+            // Prefer the return-from-details focus signal (more recent action)
+            // over the after-delete focus; whichever is set wins.
+            focusTargetId = returnFocusEntryId ?: focusAfterDeleteId,
+            onFocusConsumed = {
+                if (returnFocusEntryId != null) onReturnFocusConsumed()
+                else focusAfterDeleteId = null
+            },
+            listState = listState,
         )
     }
 }
@@ -267,10 +292,13 @@ private fun GroupedRecentsList(
     loading: Boolean = false,
     onLoadMore: () -> Unit = {},
     onOpenContactDetails: (Long) -> Unit = {},
+    onOpenContactDetailsForEntry: (entryId: Long, contactId: Long) -> Unit =
+        { _, cid -> onOpenContactDetails(cid) },
     onDeleteContact: (Long, String) -> Unit = { _, _ -> },
     onSaveAsContact: (String) -> Unit = {},
     focusTargetId: Long? = null,
     onFocusConsumed: () -> Unit = {},
+    listState: LazyListState = rememberLazyListState(),
 ) {
     val grouped = remember(entries) {
         val now = Calendar.getInstance()
@@ -284,7 +312,26 @@ private fun GroupedRecentsList(
     }
     val expanded = remember { mutableStateMapOf<RecentBucket, Boolean>() }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    // Scroll the focus target into composition so its row-level focusRequester
+    // can fire. Without this, an offscreen target row would never be composed
+    // and focus would silently no-op.
+    LaunchedEffect(focusTargetId, entries) {
+        if (focusTargetId == null) return@LaunchedEffect
+        var index = 0
+        for ((bucket, items) in grouped) {
+            index++ // section header always takes one slot
+            val pos = items.indexOfFirst { it.id == focusTargetId }
+            if (pos >= 0) {
+                if (expanded[bucket] == false) expanded[bucket] = true
+                listState.scrollToItem(index + pos)
+                return@LaunchedEffect
+            }
+            val isExpanded = expanded[bucket] ?: true
+            if (isExpanded) index += items.size
+        }
+    }
+
+    LazyColumn(modifier = Modifier.fillMaxSize(), state = listState) {
         grouped.forEach { (bucket, items) ->
             val isExpanded = expanded[bucket] ?: true
             item(key = "header_${bucket.name}") {
@@ -305,7 +352,11 @@ private fun GroupedRecentsList(
                         isSelected = entry.id in selectedIds,
                         selectionActive = selectionActive,
                         onToggleSelect = { onToggleSelect(entry.id) },
-                        onOpenContactDetails = onOpenContactDetails,
+                        // Tag each "open contact details" call with this row's
+                        // entry id so the host can restore focus here on return.
+                        onOpenContactDetails = { cid ->
+                            onOpenContactDetailsForEntry(entry.id, cid)
+                        },
                         onDeleteContact = onDeleteContact,
                         onSaveAsContact = onSaveAsContact,
                         focusTargetId = focusTargetId,

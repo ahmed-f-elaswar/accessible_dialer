@@ -1,7 +1,7 @@
 {
-  "versionName": "1.1.2",
-  "versionCode": 4,
-  "tag": "v1.1.2",
-  "apkUrl": "https://github.com/ahmed-f-elaswar/accessible_dialer/releases/download/v1.1.2/app-release.apk",
-  "notes": "Test build for the new latest.json update flow."
+  "versionName": "1.1.3",
+  "versionCode": 5,
+  "tag": "v1.1.3",
+  "apkUrl": "https://github.com/ahmed-f-elaswar/accessible_dialer/releases/download/v1.1.3/app-release.apk",
+  "notes": "Contacts and Recents now preserve scroll position and restore focus to the row you opened when you press Back. Settings screen now responds to the Back gesture. Accounts filter checkbox a11y, multi-select Share + Move, and Recents merge ordering fixes."
 }

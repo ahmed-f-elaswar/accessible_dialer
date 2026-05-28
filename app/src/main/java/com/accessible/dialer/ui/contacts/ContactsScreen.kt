@@ -22,8 +22,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -57,6 +61,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -95,6 +101,17 @@ fun ContactsScreen(
     onNewContact: () -> Unit = {},
     onEditContact: (Long) -> Unit = {},
     reloadKey: Int = 0,
+    listState: LazyListState = rememberLazyListState(),
+    /**
+     * If non-null, after the list (re)composes the row matching this contact id
+     * should claim TalkBack / input focus and the list should scroll to bring it
+     * into view. Used to restore the "where you were" anchor when the user
+     * returns from the contact details screen. The screen invokes
+     * [onFocusConsumed] once focus has been requested so a stale value doesn't
+     * keep stealing focus across unrelated recompositions.
+     */
+    focusTargetId: Long? = null,
+    onFocusConsumed: () -> Unit = {},
     vm: ContactsViewModel = viewModel(),
 ) {
     val context = LocalContext.current
@@ -120,6 +137,7 @@ fun ContactsScreen(
     // active a tap toggles selection instead of opening the contact.
     val selectedIds = remember { mutableStateListOf<Long>() }
     var showDeleteSelectedConfirm by remember { mutableStateOf(false) }
+    var showMoveAccountPicker by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(permissionsGranted, reloadKey) {
@@ -166,6 +184,32 @@ fun ContactsScreen(
             },
         )
     }
+
+    if (showMoveAccountPicker) {
+        MoveSelectedAccountPicker(
+            onDismiss = { showMoveAccountPicker = false },
+            onPick = { destKey ->
+                showMoveAccountPicker = false
+                val ids = selectedIds.toList()
+                selectedIds.clear()
+                scope.launch {
+                    val moved = withContext(Dispatchers.IO) {
+                        ids.count {
+                            com.accessible.dialer.util.ContactAccounts
+                                .moveContact(context, it, destKey)
+                        }
+                    }
+                    val msg = if (moved == ids.size) {
+                        context.getString(R.string.storage_move_done, moved)
+                    } else {
+                        context.getString(R.string.storage_move_partial, moved, ids.size)
+                    }
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    vm.load(context)
+                }
+            },
+        )
+    }
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -208,6 +252,11 @@ fun ContactsScreen(
                         selectedIds.clear()
                         selectedIds.addAll(filtered.map { it.id })
                     },
+                    onShare = {
+                        val ids = selectedIds.toList()
+                        ContactOps.shareContacts(context, ids)
+                    },
+                    onMove = { showMoveAccountPicker = true },
                     onDelete = { showDeleteSelectedConfirm = true },
                 )
                 HorizontalDivider()
@@ -289,6 +338,9 @@ fun ContactsScreen(
                     onToggleSelect = { id ->
                         if (selectedIds.contains(id)) selectedIds.remove(id) else selectedIds.add(id)
                     },
+                    listState = listState,
+                    focusTargetId = focusTargetId,
+                    onFocusConsumed = onFocusConsumed,
                 )
             }
         }
@@ -344,21 +396,24 @@ private fun AccountFilterDialog(
                 options.forEach { (key, count) ->
                     val checked = selection[key] == true
                     val label = friendlyAccountLabel(context, key)
+                    val countLabel = stringResource(R.string.contacts_filter_count_a11y, count)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable(
-                                onClick = { selection[key] = !checked },
+                            .toggleable(
+                                value = checked,
                                 role = Role.Checkbox,
-                                onClickLabel = label,
+                                onValueChange = { selection[key] = it },
                             )
-                            .padding(vertical = 8.dp),
+                            .padding(vertical = 8.dp)
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = "$label, $countLabel"
+                            },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(
                             checked = checked,
                             onCheckedChange = null,
-                            modifier = Modifier.semantics { contentDescription = "" },
                         )
                         Spacer(Modifier.size(8.dp))
                         Column(Modifier.weight(1f)) {
@@ -436,6 +491,9 @@ internal fun GroupedContactList(
     selectedIds: Set<Long> = emptySet(),
     selectionActive: Boolean = false,
     onToggleSelect: (Long) -> Unit = {},
+    listState: LazyListState = rememberLazyListState(),
+    focusTargetId: Long? = null,
+    onFocusConsumed: () -> Unit = {},
 ) {
     val appContext = LocalContext.current
     val grouped = remember(contacts) {
@@ -447,8 +505,39 @@ internal fun GroupedContactList(
             .toSortedMap(compareBy { if (it == '#') Char.MAX_VALUE else it })
     }
     val expanded = remember { mutableStateMapOf<Char, Boolean>() }
+    val effectiveListState = listState
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    // A single FocusRequester is hoisted here and attached only to the row whose
+    // id matches focusTargetId. Doing focus work at this scope lets us drive the
+    // entire sequence — expand section → scroll → wait for layout → requestFocus
+    // — on one coroutine, so the focus call can't race the row's first
+    // composition (which is what previously let the search OutlinedTextField
+    // grab default focus).
+    val rowFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(focusTargetId, contacts) {
+        if (focusTargetId == null) return@LaunchedEffect
+        var index = 0
+        for ((letter, items) in grouped) {
+            index++ // section header always takes one slot
+            val targetPos = items.indexOfFirst { it.id == focusTargetId }
+            if (targetPos >= 0) {
+                if (expanded[letter] == false) expanded[letter] = true
+                effectiveListState.scrollToItem(index + targetPos)
+                // Wait for the scrolled-to row to be composed and laid out so
+                // the FocusRequester modifier is attached to a node. 150ms
+                // comfortably exceeds two frames at 60Hz.
+                kotlinx.coroutines.delay(150)
+                val ok = runCatching { rowFocusRequester.requestFocus() }.isSuccess
+                if (ok) onFocusConsumed()
+                return@LaunchedEffect
+            }
+            val isExpanded = expanded[letter] ?: true
+            if (isExpanded) index += items.size
+        }
+    }
+
+    LazyColumn(modifier = Modifier.fillMaxSize(), state = effectiveListState) {
         grouped.forEach { (letter, items) ->
             val isExpanded = expanded[letter] ?: true
             item(key = "header_$letter") {
@@ -472,6 +561,7 @@ internal fun GroupedContactList(
                         isSelected = contact.id in selectedIds,
                         selectionActive = selectionActive,
                         onToggleSelect = { onToggleSelect(contact.id) },
+                        externalFocusRequester = if (contact.id == focusTargetId) rowFocusRequester else null,
                     )
                     HorizontalDivider()
                 }
@@ -539,6 +629,7 @@ internal fun ContactRow(
     isSelected: Boolean = false,
     selectionActive: Boolean = false,
     onToggleSelect: () -> Unit = {},
+    externalFocusRequester: FocusRequester? = null,
 ) {
     val context = LocalContext.current
     val displayName = contact.name.ifBlank { contact.number }
@@ -635,6 +726,11 @@ internal fun ContactRow(
         modifier = Modifier
             .fillMaxWidth()
             .then(
+                if (externalFocusRequester != null)
+                    Modifier.focusRequester(externalFocusRequester)
+                else Modifier
+            )
+            .then(
                 if (isSelected)
                     Modifier.background(MaterialTheme.colorScheme.secondaryContainer)
                 else Modifier
@@ -694,10 +790,14 @@ private fun SelectionBar(
     count: Int,
     onClear: () -> Unit,
     onSelectAll: () -> Unit,
+    onShare: () -> Unit,
+    onMove: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val clearLabel = stringResource(R.string.selection_clear)
     val deleteLabel = stringResource(R.string.selection_delete)
+    val shareLabel = stringResource(R.string.selection_share)
+    val moveLabel = stringResource(R.string.selection_move)
     val selectAllLabel = stringResource(R.string.selection_select_all)
     Row(
         modifier = Modifier
@@ -716,8 +816,75 @@ private fun SelectionBar(
             modifier = Modifier.weight(1f),
         )
         TextButton(onClick = onSelectAll) { Text(selectAllLabel) }
+        IconButton(
+            onClick = onShare,
+            modifier = Modifier.semantics { contentDescription = shareLabel },
+        ) {
+            Icon(Icons.Filled.Share, contentDescription = shareLabel)
+        }
+        IconButton(
+            onClick = onMove,
+            modifier = Modifier.semantics { contentDescription = moveLabel },
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.DriveFileMove,
+                contentDescription = moveLabel,
+            )
+        }
         IconButton(onClick = onDelete) {
             Icon(Icons.Filled.Delete, contentDescription = deleteLabel)
         }
     }
+}
+
+/**
+ * Single-choice account picker used by the contacts multi-select "Move" action.
+ * Lists every storage account known to the device; tapping one fires [onPick]
+ * with its "<type>|<name>" key, which the caller passes to
+ * [com.accessible.dialer.util.ContactAccounts.moveContact] for each selected id.
+ */
+@Composable
+private fun MoveSelectedAccountPicker(
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var entries by remember {
+        mutableStateOf<List<com.accessible.dialer.util.ContactAccounts.Entry>>(emptyList())
+    }
+    LaunchedEffect(Unit) {
+        entries = withContext(Dispatchers.IO) {
+            com.accessible.dialer.util.ContactAccounts.list(context)
+        }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.storage_move_title)) },
+        text = {
+            LazyColumn {
+                items(entries, key = { it.key }) { entry ->
+                    val opener = entry.label
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                role = Role.Button,
+                                onClickLabel = opener,
+                                onClick = { onPick(entry.key) },
+                            )
+                            .padding(vertical = 12.dp, horizontal = 8.dp)
+                            .semantics(mergeDescendants = true) {},
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(entry.label, style = MaterialTheme.typography.bodyLarge)
+                    }
+                    HorizontalDivider()
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }

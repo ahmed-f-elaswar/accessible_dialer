@@ -1,6 +1,7 @@
 package com.accessible.dialer.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -202,6 +203,25 @@ fun DialerApp(
     var saveContactChoiceNumber by rememberSaveable { mutableStateOf<String?>(null) }
     var addNumberToExistingFor by rememberSaveable { mutableStateOf<String?>(null) }
 
+    // List scroll state hoisted up here so it survives the early-return swap-outs
+    // for ContactDetails / ContactEditor / Settings sub-screens. `rememberLazyListState`
+    // also uses `rememberSaveable` internally so the position survives configuration
+    // changes (rotation, process death restore).
+    val contactsListState = rememberLazyListState()
+    val recentsListState = rememberLazyListState()
+    // When the user opens contact details from a list row, we capture the id so
+    // that when they back out the same row gets TalkBack / input focus again
+    // (instead of focus snapping to the top of the rebuilt list).
+    var contactsFocusReturnId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var recentsFocusReturnEntryId by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    // Back-press inside Settings should exit Settings into the dialer's main UI,
+    // NOT pop the activity (which would drop the user out to the system home
+    // screen). The early-return blocks for full-screen sub-routes register their
+    // own BackHandlers; Settings is rendered inline inside the Scaffold body so
+    // it needs an explicit handler here.
+    androidx.activity.compose.BackHandler(enabled = showSettings) { showSettings = false }
+
     val goDialWith: (String) -> Unit = { number ->
         dialpadNumber = number
         currentTab = Tab.Dialpad
@@ -339,6 +359,20 @@ fun DialerApp(
         return
     }
 
+    if (showStorage) {
+        androidx.activity.compose.BackHandler { showStorage = false }
+        com.accessible.dialer.ui.storage.StorageLocationsScreen(
+            onBack = {
+                showStorage = false
+                // Moves / deletes from this screen change which accounts own
+                // which contacts — force the Contacts tab to re-query so the
+                // filter dropdown and aggregated list match reality.
+                contactsReloadKey += 1
+            },
+        )
+        return
+    }
+
     if (showTools) {
         androidx.activity.compose.BackHandler { showTools = false }
         com.accessible.dialer.ui.settings.ToolsScreen(
@@ -356,20 +390,6 @@ fun DialerApp(
         com.accessible.dialer.ui.settings.BlockingScreen(
             onBack = { showBlocking = false },
             onOpenBlocked = { showBlocked = true },
-        )
-        return
-    }
-
-    if (showStorage) {
-        androidx.activity.compose.BackHandler { showStorage = false }
-        com.accessible.dialer.ui.storage.StorageLocationsScreen(
-            onBack = {
-                showStorage = false
-                // Moves / deletes from this screen change which accounts own
-                // which contacts — force the Contacts tab to re-query so the
-                // filter dropdown and aggregated list match reality.
-                contactsReloadKey += 1
-            },
         )
         return
     }
@@ -604,6 +624,10 @@ fun DialerApp(
                         onCallNumber = onPlaceCall,
                         onShowInDialpad = goDialWith,
                         onOpenContactDetails = { detailsContactId = it },
+                        onOpenContactDetailsForEntry = { entryId, cid ->
+                            recentsFocusReturnEntryId = entryId
+                            detailsContactId = cid
+                        },
                         onSaveAsContact = { number ->
                             // Open the new/existing chooser instead of going straight
                             // to a new-contact editor. The user picks intent here;
@@ -612,15 +636,24 @@ fun DialerApp(
                             saveContactChoiceNumber = number
                         },
                         reloadKey = recentsReloadKey,
+                        listState = recentsListState,
+                        returnFocusEntryId = recentsFocusReturnEntryId,
+                        onReturnFocusConsumed = { recentsFocusReturnEntryId = null },
                     )
                     Tab.Contacts -> ContactsScreen(
                         permissionsGranted = permissionsGranted,
                         onCallNumber = onPlaceCall,
                         onShowInDialpad = goDialWith,
-                        onOpenDetails = { detailsContactId = it },
+                        onOpenDetails = { id ->
+                            contactsFocusReturnId = id
+                            detailsContactId = id
+                        },
                         onNewContact = { editorContactId = 0L },
                         onEditContact = { editorContactId = it },
                         reloadKey = contactsReloadKey,
+                        listState = contactsListState,
+                        focusTargetId = contactsFocusReturnId,
+                        onFocusConsumed = { contactsFocusReturnId = null },
                     )
                     Tab.Favorites -> FavoritesScreen(
                         permissionsGranted = permissionsGranted,
