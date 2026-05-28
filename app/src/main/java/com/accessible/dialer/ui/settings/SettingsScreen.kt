@@ -153,6 +153,46 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(8.dp))
+                    // Author attribution. The name + email are merged into a single
+                    // TalkBack node so the screen reader announces "Created by Ahmed
+                    // Farid" together, followed by the email row as its own item.
+                    Text(
+                        text = stringResource(
+                            R.string.settings_about_author_label,
+                        ) + ": " + stringResource(R.string.settings_about_author_name),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    val email = stringResource(R.string.settings_about_author_email)
+                    val emailAction = stringResource(R.string.settings_about_email_action)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = email,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                onClickLabel = emailAction,
+                                role = Role.Button,
+                            ) {
+                                // Fire a mail intent. ACTION_SENDTO with a mailto:
+                                // URI is the standard way; any installed mail app
+                                // will accept it. Wrapped in runCatching so the
+                                // row can't crash the screen if the device has no
+                                // email client.
+                                runCatching {
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_SENDTO,
+                                        android.net.Uri.parse("mailto:" + email),
+                                    )
+                                    context.startActivity(intent)
+                                }
+                            }
+                            .padding(vertical = 6.dp),
+                    )
                 }
             }
         }

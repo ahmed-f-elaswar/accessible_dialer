@@ -126,6 +126,7 @@
     <string name="contacts_filter_dialog_title">Show contacts from</string>
     <string name="contacts_filter_dialog_subtitle">Pick one or more accounts. Leave all unchecked to show everything.</string>
     <string name="contacts_filter_clear">Show all</string>
+    <string name="contacts_filter_count_a11y">%1$d contacts</string>
     <string name="settings_section_display">Display</string>
     <string name="settings_section_contacts">Contacts</string>
     <string name="settings_section_calling">Calling</string>
@@ -166,6 +167,10 @@
 
     <string name="settings_about_version">Version %1$s</string>
     <string name="settings_about_blurb">Accessible, big-key dialer designed for screen-reader and low-vision users.</string>
+    <string name="settings_about_author_label">Created by</string>
+    <string name="settings_about_author_name">Ahmed Farid</string>
+    <string name="settings_about_author_email">a.f.elaswar@gmail.com</string>
+    <string name="settings_about_email_action">Email the developer</string>
 
     <!-- Contact CRUD actions -->
     <string name="contacts_new">New contact</string>
@@ -191,6 +196,8 @@
     <string name="selection_count">%1$d selected</string>
     <string name="selection_clear">Clear selection</string>
     <string name="selection_delete">Delete selected</string>
+    <string name="selection_share">Share selected</string>
+    <string name="selection_move">Move selected to account</string>
     <string name="selection_select_all">Select all</string>
     <string name="selection_long_press_hint">Long-press to select more</string>
     <string name="delete_selected_contacts_title">Delete %1$d contacts?</string>
