@@ -1,0 +1,2 @@
+﻿[main b38f7c5] v2.0.0: refreshed docs, author attribution in About
+ 5 files changed, 190 insertions(+), 43 deletions(-)

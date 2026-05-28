@@ -166,6 +166,44 @@ object ContactOps {
     }
 
     /**
+     * Shares a single vCard containing every contact in [contactIds] via the
+     * system share sheet. Uses the platform's multi-vCard URI (lookup keys
+     * joined by ':'), which the framework resolves to a single combined .vcf
+     * stream. Falls back to no-op when nothing resolves to a lookup key.
+     */
+    fun shareContacts(context: Context, contactIds: Collection<Long>) {
+        if (contactIds.isEmpty()) return
+        val cr = context.contentResolver
+        val lookupKeys = contactIds.mapNotNull { id ->
+            if (id <= 0L) return@mapNotNull null
+            runCatching {
+                cr.query(
+                    ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, id),
+                    arrayOf(ContactsContract.Contacts.LOOKUP_KEY),
+                    null, null, null,
+                )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+            }.getOrNull()
+        }.filter { !it.isNullOrBlank() }
+        if (lookupKeys.isEmpty()) return
+        if (lookupKeys.size == 1) {
+            shareContact(context, contactIds.first { it > 0L })
+            return
+        }
+        val shareUri = Uri.withAppendedPath(
+            ContactsContract.Contacts.CONTENT_MULTI_VCARD_URI,
+            android.net.Uri.encode(lookupKeys.joinToString(":")),
+        )
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = ContactsContract.Contacts.CONTENT_VCARD_TYPE
+            putExtra(Intent.EXTRA_STREAM, shareUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val chooser = Intent.createChooser(send, context.getString(R.string.action_share_contact))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(chooser) }
+    }
+
+    /**
      * Blocks [number] via [BlockedNumbersRepository] (which talks to the system
      * `BlockedNumberContract` provider). Shows a toast confirming the outcome.
      * Falls back to launching the system blocked-numbers UI if the direct insert

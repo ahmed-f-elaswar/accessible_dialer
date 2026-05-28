@@ -452,23 +452,22 @@ class RecentsViewModel : ViewModel() {
                     if (!fresh.isNullOrBlank()) e.copy(displayName = fresh) else e
                 }
 
-                // Merge: replace-in-place when the dedupe key already exists,
-                // otherwise prepend. Walk newRows DESC so older-of-the-new rows
-                // can't "win" over newer ones for the same number.
-                val keyToIndex = HashMap<String, Int>(current.size)
-                current.forEachIndexed { i, e -> keyToIndex[dedupeKey(e)] = i }
-                val merged = current.toMutableList()
-                val prepended = ArrayList<CallLogEntry>()
+                // Merge: any contact touched by the new rows moves to the top
+                // of the list (so a fresh call jumps to the head of Today),
+                // while contacts not in the delta keep their relative order.
+                // Walk newRows DESC date so older-of-the-new rows can't "win"
+                // over newer ones for the same number.
+                val updatedByKey = LinkedHashMap<String, CallLogEntry>()
                 for (e in overlaid) {
                     val k = dedupeKey(e)
-                    val existingIdx = keyToIndex[k]
-                    if (existingIdx != null) {
-                        merged[existingIdx] = e
-                    } else if (seen.add(k)) {
-                        prepended += e
-                    }
+                    updatedByKey.putIfAbsent(k, e)
+                    seen.add(k)
                 }
-                _entries.value = if (prepended.isEmpty()) merged else prepended + merged
+                // Drop the old rows for any touched contact; the new row
+                // (already newer by date) replaces it at the front. Untouched
+                // rows keep their relative ordering.
+                val kept = current.filter { dedupeKey(it) !in updatedByKey }
+                _entries.value = updatedByKey.values.toList() + kept
                 // Subsequent pages query by OFFSET on a DESC-by-date list. Newly
                 // appended rows shifted that list, so bump rawOffset to keep our
                 // pagination cursor pointing at the same row it pointed at before.
