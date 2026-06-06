@@ -271,6 +271,17 @@ fun ContactsScreen(
                     onValueChange = vm::setQuery,
                     label = { Text(stringResource(R.string.contacts_search)) },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            val clearLabel = stringResource(R.string.contacts_search_clear)
+                            IconButton(
+                                onClick = { vm.setQuery("") },
+                                modifier = Modifier.semantics { contentDescription = clearLabel },
+                            ) {
+                                Icon(Icons.Filled.Close, contentDescription = null)
+                            }
+                        }
+                    },
                     singleLine = true,
                     modifier = Modifier
                         .weight(1f)

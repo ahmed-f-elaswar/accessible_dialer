@@ -346,20 +346,33 @@ class DialerInCallService : InCallService() {
      * Best-effort fallback for "Volume Up answers the call": some OEM platforms
      * intercept the rocker before the [RingVolumeKeyInterceptor] media session
      * sees it and just change the stream volume. We listen for that volume change
-     * broadcast and treat any volume increase (on any stream) as an answer request
-     * while we are in RINGING. Volume Down is intentionally NOT handled here —
-     * the platform delivers it via [onSilenceRinger], and reacting to spurious
-     * `curr < prev` events here was causing Volume Up to be misread as a mute on
-     * some devices that fire a transient downward broadcast on the same press.
+     * broadcast and treat a volume increase on STREAM_RING as an answer request
+     * while we are still in RINGING. Volume Down is intentionally NOT handled
+     * here — the platform delivers it via [onSilenceRinger], and reacting to
+     * spurious `curr < prev` events here was causing Volume Up to be misread as
+     * a mute on some devices that fire a transient downward broadcast on the
+     * same press.
+     *
+     * We MUST filter by [EXTRA_VOLUME_STREAM_TYPE] == STREAM_RING: without that
+     * filter, any unrelated volume change (notifications, media, system, an
+     * "increasing ringtone" OEM feature ramping our own ringer up, etc.) was
+     * triggering false auto-answers on stationary devices.
      */
     private fun startVolumeReceiver() {
         if (volumeReceiver != null) return
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 if (intent.action != VOLUME_CHANGED_ACTION) return
+                // Only react to the RING stream; ignore media/notification/etc.
+                val stream = intent.getIntExtra(EXTRA_VOLUME_STREAM_TYPE, -1)
+                if (stream != AudioManager.STREAM_RING) return
                 val curr = intent.getIntExtra(EXTRA_VOLUME_STREAM_VALUE, -1)
                 val prev = intent.getIntExtra(EXTRA_PREV_VOLUME_STREAM_VALUE, -1)
                 if (curr < 0 || prev < 0) return
+                // Re-confirm we are still actually ringing — defends against a
+                // late broadcast arriving after the call moved to ACTIVE/DISCONNECTED.
+                val call = currentCall ?: return
+                if (call.details?.state != Call.STATE_RINGING) return
                 if (curr > prev) runCatching { OngoingCallHolder.answer() }
             }
         }

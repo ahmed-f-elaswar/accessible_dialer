@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Event
@@ -819,6 +820,17 @@ private fun MergeContactPickerDialog(
                     value = query,
                     onValueChange = { query = it },
                     label = { Text(stringResource(R.string.contacts_search)) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            val clearLabel = stringResource(R.string.contacts_search_clear)
+                            IconButton(
+                                onClick = { query = "" },
+                                modifier = Modifier.semantics { contentDescription = clearLabel },
+                            ) {
+                                Icon(Icons.Filled.Close, contentDescription = null)
+                            }
+                        }
+                    },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()

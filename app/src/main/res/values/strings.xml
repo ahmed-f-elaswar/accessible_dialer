@@ -98,6 +98,7 @@
     <!-- Contacts -->
     <string name="contacts_empty">No contacts found</string>
     <string name="contacts_search">Search contacts</string>
+    <string name="contacts_search_clear">Clear search</string>
     <string name="contacts_call">Call %1$s</string>
     <string name="contacts_show_in_keypad">Show %1$s in keypad</string>
     <string name="contacts_load_in_dialpad">Show %1$s in dialpad</string>
