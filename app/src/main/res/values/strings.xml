@@ -58,6 +58,10 @@
     <string name="call_reply_preset_2">On my way.</string>
     <string name="call_reply_preset_3">I\'ll call you later.</string>
     <string name="call_reply_preset_4">What\'s up?</string>
+    <string name="call_reply_actions">Reply with actions</string>
+    <string name="call_reply_actions_title">Reply with actions</string>
+    <string name="call_reply_block">Reply with block</string>
+    <string name="call_reply_block_announce">Caller blocked</string>
     <string name="call_unknown">Unknown number</string>
     <string name="call_duration">Duration %1$s</string>
     <string name="call_via_account">Via %1$s</string>
@@ -94,6 +98,16 @@
     <string name="missed_call_unknown">Unknown caller</string>
     <string name="missed_call_action_call_back">Call back</string>
     <string name="missed_call_action_message">Message</string>
+
+    <!-- Ongoing-call notification (action buttons in the shade so the user can
+         answer / hang up / mute / toggle speaker without re-opening the in-call
+         screen). -->
+    <string name="notif_channel_ongoing_call">Ongoing call</string>
+    <string name="notif_channel_ongoing_call_desc">Controls for the call currently in progress.</string>
+    <string name="notif_call_incoming">Incoming call</string>
+    <string name="notif_call_dialing">Calling…</string>
+    <string name="notif_call_active">Call in progress</string>
+    <string name="notif_call_on_hold">On hold</string>
 
     <!-- Contacts -->
     <string name="contacts_empty">No contacts found</string>
@@ -320,6 +334,9 @@
     <string name="settings_find_duplicates_sub">Scan for contacts with the same name, phone, or email and merge them</string>
     <string name="settings_storage_locations">Where contacts are stored</string>
     <string name="settings_storage_locations_sub">List the accounts that own your contacts and how many each holds</string>
+    <string name="settings_default_account">Default storage for new contacts</string>
+    <string name="settings_default_account_sub_local">New contacts are saved to Local / Phone only</string>
+    <string name="settings_default_account_sub_current">New contacts are saved to %1$s</string>
     <string name="settings_blocked_numbers">Blocked numbers</string>
     <string name="settings_blocked_numbers_sub">Calls from these numbers are silently rejected</string>
     <string name="blocked_numbers_title">Blocked numbers</string>

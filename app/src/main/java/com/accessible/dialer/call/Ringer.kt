@@ -5,8 +5,11 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -31,11 +34,37 @@ class Ringer(private val context: Context) {
     private var ringtone: Ringtone? = null
     private var vibrator: Vibrator? = null
     private var vibrating = false
+    // Active only in call-waiting mode (a second incoming call arrives while
+    // the user is already on a call). We play short periodic SUP_CALL_WAITING
+    // tones on the in-call audio stream instead of the full ringtone so the
+    // existing call audio stays intelligible.
+    private var waitingTone: ToneGenerator? = null
+    private val waitingHandler = Handler(Looper.getMainLooper())
+    private var waitingRunnable: Runnable? = null
 
-    fun start(callerNumber: String?, accountHandle: PhoneAccountHandle? = null) {
+    /**
+     * Start ringing for an incoming call.
+     *
+     * @param callerNumber phone number of the incoming caller (for per-contact ringtone lookup).
+     * @param accountHandle PhoneAccountHandle of the incoming call (for per-SIM ringtone lookup).
+     * @param callWaiting true when the user is already on another call. In that
+     *  case we skip the full ringtone + vibration and instead play a periodic
+     *  short "beep beep" (the standard call-waiting alert tone) on the voice-
+     *  call stream so the ongoing call audio is not drowned out.
+     */
+    fun start(
+        callerNumber: String?,
+        accountHandle: PhoneAccountHandle? = null,
+        callWaiting: Boolean = false,
+    ) {
         // Already playing — nothing to do. The system can re-deliver STATE_RINGING when
         // the call's details change, and we don't want to restart the tone every time.
-        if (ringtone?.isPlaying == true || vibrating) return
+        if (ringtone?.isPlaying == true || vibrating || waitingTone != null) return
+
+        if (callWaiting) {
+            startCallWaitingAlert()
+            return
+        }
 
         val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         val mode = am?.ringerMode ?: AudioManager.RINGER_MODE_NORMAL
@@ -65,6 +94,7 @@ class Ringer(private val context: Context) {
             runCatching { vibrator?.cancel() }
             vibrating = false
         }
+        stopCallWaitingAlert()
     }
 
     private fun startVibration() {
@@ -85,6 +115,40 @@ class Ringer(private val context: Context) {
         runCatching { v.vibrate(effect, attrs) }
         vibrator = v
         vibrating = true
+    }
+
+    /**
+     * Call-waiting alert: play the standard "beep beep" SUP_CALL_WAITING tone on
+     * the voice-call stream every few seconds until [stop] is called. Mirrors
+     * what stock dialers do for a second incoming call so the active call
+     * audio stays intelligible.
+     */
+    private fun startCallWaitingAlert() {
+        // 60% of max volume — clearly audible over speech but well below the
+        // full ringer level.
+        val tg = runCatching { ToneGenerator(AudioManager.STREAM_VOICE_CALL, 60) }
+            .getOrNull() ?: return
+        waitingTone = tg
+        val runnable = object : Runnable {
+            override fun run() {
+                // TONE_SUP_CALL_WAITING is itself a short two-pulse "beep beep"
+                // (~300ms total). Re-trigger every 4s for the duration of the
+                // ringing state.
+                runCatching { tg.startTone(ToneGenerator.TONE_SUP_CALL_WAITING) }
+                waitingHandler.postDelayed(this, 4000L)
+            }
+        }
+        waitingRunnable = runnable
+        // Fire the first beep immediately so the user is alerted right away.
+        waitingHandler.post(runnable)
+    }
+
+    private fun stopCallWaitingAlert() {
+        waitingRunnable?.let { waitingHandler.removeCallbacks(it) }
+        waitingRunnable = null
+        runCatching { waitingTone?.stopTone() }
+        runCatching { waitingTone?.release() }
+        waitingTone = null
     }
 
     /**

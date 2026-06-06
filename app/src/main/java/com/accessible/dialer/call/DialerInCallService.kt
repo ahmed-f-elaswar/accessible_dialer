@@ -26,6 +26,13 @@ class DialerInCallService : InCallService() {
     private val ringer by lazy { Ringer(applicationContext) }
     // Per-call callback that drives the ringer. Held so we can unregister on remove.
     private val callbacks = mutableMapOf<Call, Call.Callback>()
+    // BroadcastReceiver that handles the action buttons (Answer / Hang up / Mute /
+    // Speaker) on the ongoing-call notification posted by [InCallNotifier].
+    // Registered dynamically (not in the manifest) so it is implicitly
+    // not-exported on every Android version, and so we never leak across
+    // service teardowns.
+    private val actionReceiver = InCallActionReceiver()
+    private var actionReceiverRegistered = false
     // The most recently-added call. We keep a reference (not just state) because the
     // ringer needs the call's PhoneAccountHandle to resolve a per-SIM ringtone
     // override, and the holder only exposes a phone number.
@@ -67,6 +74,37 @@ class DialerInCallService : InCallService() {
         var everActive: Boolean = false,
     )
     private val traces = mutableMapOf<Call, CallTrace>()
+
+    override fun onCreate() {
+        super.onCreate()
+        // Register the notification-action receiver for the lifetime of this
+        // service. Use the explicit not-exported flag on Android 13+ (API 33)
+        // so the receiver is reachable only via our own PendingIntents.
+        if (!actionReceiverRegistered) {
+            val filter = IntentFilter().apply {
+                addAction(InCallActionReceiver.ACTION_ANSWER)
+                addAction(InCallActionReceiver.ACTION_HANGUP)
+                addAction(InCallActionReceiver.ACTION_TOGGLE_MUTE)
+                addAction(InCallActionReceiver.ACTION_TOGGLE_SPEAKER)
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(actionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag")
+                registerReceiver(actionReceiver, filter)
+            }
+            actionReceiverRegistered = true
+        }
+    }
+
+    override fun onDestroy() {
+        if (actionReceiverRegistered) {
+            runCatching { unregisterReceiver(actionReceiver) }
+            actionReceiverRegistered = false
+        }
+        InCallNotifier.cancel(applicationContext)
+        super.onDestroy()
+    }
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
@@ -175,6 +213,17 @@ class DialerInCallService : InCallService() {
         }
         OngoingCallHolder.detach(call)
         OngoingCallHolder.bindService(null)
+        // If that was the last live call, drop the ongoing-call notification
+        // (otherwise refresh it so it reflects whichever call is now current).
+        if (calls.isEmpty()) {
+            InCallNotifier.cancel(applicationContext)
+        } else {
+            InCallNotifier.refresh(
+                applicationContext,
+                OngoingCallHolder.state.value,
+                OngoingCallHolder.audio.value,
+            )
+        }
     }
 
     override fun onCallAudioStateChanged(audioState: CallAudioState) {
@@ -182,6 +231,14 @@ class DialerInCallService : InCallService() {
         // Mirror the real audio route + mute flag into the holder so the UI reflects the
         // system state and toggles are correctly applied through setAudioRoute/setMuted.
         OngoingCallHolder.updateAudioState(audioState)
+        // Refresh the notification so the Mute / Speaker action labels reflect
+        // the new state (e.g. "Mute" becomes "Unmute" once the user mutes from
+        // the in-call screen, and vice versa).
+        InCallNotifier.refresh(
+            applicationContext,
+            OngoingCallHolder.state.value,
+            OngoingCallHolder.audio.value,
+        )
     }
 
     /**
@@ -230,7 +287,22 @@ class DialerInCallService : InCallService() {
             ringStartVolume = am?.getStreamVolume(AudioManager.STREAM_RING) ?: -1
             val number = OngoingCallHolder.currentNumber()
             val handle = runCatching { currentCall?.details?.accountHandle }.getOrNull()
-            ringer.start(number, handle)
+            // Call-waiting: another call is already in progress (ACTIVE/HOLDING/
+            // DIALING/CONNECTING). Play a gentle periodic "beep beep" instead of
+            // the full ringtone + vibration so we don't drown out the live call
+            // audio.
+            val callWaiting = runCatching {
+                calls.any { other ->
+                    other !== currentCall && when (other.state) {
+                        Call.STATE_ACTIVE,
+                        Call.STATE_HOLDING,
+                        Call.STATE_DIALING,
+                        Call.STATE_CONNECTING -> true
+                        else -> false
+                    }
+                }
+            }.getOrDefault(false)
+            ringer.start(number, handle, callWaiting = callWaiting)
             startShakeListenerIfEnabled()
             startVolumeInterceptor()
             // Active-call helpers must not run while still ringing.
@@ -252,6 +324,13 @@ class DialerInCallService : InCallService() {
                 stopProximityController()
             }
         }
+        // Push the latest state / audio snapshot to the notification so the
+        // shade controls update at the same time as the in-call screen.
+        InCallNotifier.refresh(
+            applicationContext,
+            OngoingCallHolder.state.value,
+            OngoingCallHolder.audio.value,
+        )
     }
 
     /**

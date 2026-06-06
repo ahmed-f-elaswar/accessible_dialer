@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayArrow
@@ -94,6 +96,8 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
     var showKeypad by remember { mutableStateOf(false) }
     // Whether the "reply with message" picker is showing (only meaningful on RINGING).
     var showReplyPicker by remember { mutableStateOf(false) }
+    // Whether the "reply with actions" picker (block, etc.) is showing.
+    var showActionsPicker by remember { mutableStateOf(false) }
     // Localized strings for the live-region announcement that fires after a swipe
     // gesture toggles speaker or mute. We resolve them outside the pointer-input
     // lambda because stringResource is only callable from a @Composable scope.
@@ -312,6 +316,48 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
                         onClick = { showKeypad = true },
                     )
                 }
+            } else if (active?.telecomState == Call.STATE_RINGING) {
+                // Secondary action shown above the primary answer / decline row when
+                // an incoming call is ringing. Opens a small picker of extra
+                // responses (currently: "Reply with block", which rejects the call
+                // and adds the caller to the system block list).
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ActionControl(
+                        label = stringResource(R.string.call_reply_actions),
+                        icon = Icons.Filled.MoreHoriz,
+                        onClick = { showActionsPicker = true },
+                    )
+                }
+            } else if (active != null) {
+                // Outgoing call that hasn't connected yet (DIALING / CONNECTING /
+                // SELECT_PHONE_ACCOUNT / PULLING_CALL). The full mid-call control
+                // row isn't appropriate (mute/hold/add are meaningless before the
+                // far end answers), but the speaker toggle IS useful — the user
+                // often wants to switch to speakerphone before the callee picks up
+                // so they can hear the ringback hands-free. Surface the same
+                // ToggleControl that the active-call row uses.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ToggleControl(
+                        on = speaker,
+                        onLabel = stringResource(R.string.call_speaker_on),
+                        offLabel = stringResource(R.string.call_speaker_off),
+                        iconOn = Icons.Filled.VolumeUp,
+                        iconOff = Icons.Filled.VolumeOff,
+                        onToggle = {
+                            val next = !speaker
+                            OngoingCallHolder.setSpeaker(next)
+                            announce(if (next) speakerOnLabel else speakerOffLabel)
+                        },
+                    )
+                }
             } else {
                 Spacer(Modifier.height(0.dp))
             }
@@ -326,17 +372,21 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
             ) {
                 when (active?.telecomState) {
                     Call.STATE_RINGING -> {
-                        BigCircleButton(
-                            color = MaterialTheme.colorScheme.error,
-                            contentDescription = stringResource(R.string.call_decline),
-                            icon = Icons.Filled.CallEnd,
-                            onClick = { OngoingCallHolder.reject() },
-                        )
+                        // Order: Reply-with-message (left), Decline (centre),
+                        // Answer (right). Decline sits between the two so it can't
+                        // be confused with the message button when the user is
+                        // navigating by touch.
                         BigCircleButton(
                             color = MaterialTheme.colorScheme.tertiary,
                             contentDescription = stringResource(R.string.call_reply_message),
                             icon = Icons.AutoMirrored.Filled.Message,
                             onClick = { showReplyPicker = true },
+                        )
+                        BigCircleButton(
+                            color = MaterialTheme.colorScheme.error,
+                            contentDescription = stringResource(R.string.call_decline),
+                            icon = Icons.Filled.CallEnd,
+                            onClick = { OngoingCallHolder.reject() },
                         )
                         BigCircleButton(
                             color = MaterialTheme.colorScheme.secondary,
@@ -368,6 +418,26 @@ fun InCallScreen(onClose: () -> Unit, onAddCall: () -> Unit = {}) {
             onSend = { msg ->
                 showReplyPicker = false
                 OngoingCallHolder.rejectWithMessage(msg)
+            },
+        )
+    }
+
+    if (showActionsPicker) {
+        val callerNumber = active?.number
+        val blockedAnnounce = stringResource(R.string.call_reply_block_announce)
+        ReplyWithActionsDialog(
+            onDismiss = { showActionsPicker = false },
+            onBlock = {
+                showActionsPicker = false
+                // Add to the system block list first so a subsequent retry from
+                // the same caller is silently rejected by our CallScreeningService,
+                // then drop the current ringing call.
+                callerNumber?.takeIf { it.isNotBlank() }?.let { num ->
+                    com.accessible.dialer.blocking.BlockedNumbersRepository
+                        .block(context, num)
+                }
+                OngoingCallHolder.reject()
+                announce(blockedAnnounce)
             },
         )
     }
@@ -614,6 +684,47 @@ private fun ReplyWithMessageDialog(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(preset)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.call_reply_cancel))
+            }
+        },
+    )
+}
+
+/**
+ * "Reply with actions" picker shown when the user taps the more-actions button on a
+ * ringing call. Currently offers a single option:
+ *  - Reply with block: rejects the call AND adds the caller's number to the system
+ *    block list so future calls from this number are silently rejected by
+ *    [com.accessible.dialer.blocking.BlockingCallScreeningService].
+ */
+@Composable
+private fun ReplyWithActionsDialog(
+    onDismiss: () -> Unit,
+    onBlock: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.call_reply_actions_title)) },
+        text = {
+            Column {
+                TextButton(
+                    onClick = onBlock,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Block,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                        Spacer(Modifier.size(12.dp))
+                        Text(stringResource(R.string.call_reply_block))
                     }
                 }
             }

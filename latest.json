@@ -1,7 +1,7 @@
 {
-  "versionName": "2.0.1",
-  "versionCode": 7,
-  "tag": "v2.0.1",
-  "apkUrl": "https://github.com/ahmed-f-elaswar/accessible_dialer/releases/download/v2.0.1/app-release.apk",
-  "notes": "v2.0.1 — Bug fixes. Stopped a stationary phone from auto-answering incoming calls: the ring volume-up watcher now only reacts to changes on the RING stream (and confirms the call is still ringing), so notification, media or system volume changes can no longer be misread as an answer gesture. Added a clear (X) button to the Contacts search field and the merge-contact picker so the search text can be cleared in one tap."
+  "versionName": "2.0.2",
+  "versionCode": 8,
+  "tag": "v2.0.2",
+  "apkUrl": "https://github.com/ahmed-f-elaswar/accessible_dialer/releases/download/v2.0.2/app-release.apk",
+  "notes": "v2.0.2 — Notification controls + UX polish. New ongoing-call notification with Answer / Decline (when ringing) and Mute / Speaker / End call (mid-call) so the call is fully controllable from the shade; tapping the body returns to the in-call screen. Gentle call-waiting beep replaces the full ringtone when a second call comes in during another call. Default storage account for new contacts is now configurable in Settings → Tools. Speaker toggle now appears during outgoing dialing. Reply-with-message and Decline buttons swapped to keep Decline centered; new Reply with actions menu adds Reply with block (reject the call and block the caller). Dialpad input is now persisted across launches."
 }

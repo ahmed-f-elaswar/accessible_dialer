@@ -107,7 +107,23 @@ fun DialerApp(
     androidx.compose.runtime.LaunchedEffect(currentTab) {
         com.accessible.dialer.settings.SettingsRepository.setLastTab(currentTab.name)
     }
-    var dialpadNumber by rememberSaveable { mutableStateOf(initialNumber.orEmpty()) }
+    var dialpadNumber by rememberSaveable {
+        // Prefer the number from an inbound tel: intent (the user is being
+        // handed a number to dial from another app); otherwise restore whatever
+        // the user last had typed before the process was paused / killed so the
+        // keypad doesn't appear empty after coming back from a call or from
+        // being swiped out of memory.
+        mutableStateOf(
+            initialNumber?.takeIf { it.isNotEmpty() }
+                ?: com.accessible.dialer.settings.SettingsRepository.lastDialpadInput.value
+        )
+    }
+    // Mirror every change back into SharedPreferences so the keypad survives
+    // process death (the InCallActivity taking over for a call can cause the
+    // OS to reclaim our process while in the background).
+    androidx.compose.runtime.LaunchedEffect(dialpadNumber) {
+        com.accessible.dialer.settings.SettingsRepository.setLastDialpadInput(dialpadNumber)
+    }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
     // Contact details is rendered AS a full screen — above the Scaffold's top bar and

@@ -28,8 +28,18 @@ object SettingsRepository {
     private const val KEY_PHONE_ACCOUNT_PKG = "default_phone_account_pkg"
     private const val KEY_PHONE_ACCOUNT_CLS = "default_phone_account_cls"
     private const val KEY_CONTACT_ACCOUNT_FILTER = "contact_account_filter"
+    // Default storage account for newly created contacts. Encoded as the standard
+    // "<ACCOUNT_TYPE>|<ACCOUNT_NAME>" key used elsewhere (see
+    // [com.accessible.dialer.util.ContactAccounts]). Empty string = no preference,
+    // use the historical default ([ContactAccounts.LOCAL_KEY]).
+    private const val KEY_DEFAULT_CONTACT_ACCOUNT = "default_contact_account"
     private const val KEY_BLOCK_MODE = "block_mode"
     private const val KEY_LAST_TAB = "last_tab"
+    // Last text typed into the dialpad input. Persisted so the digits the user
+    // entered before placing a call (or leaving the app) are still on the keypad
+    // when they come back, regardless of whether the process was killed in
+    // between.
+    private const val KEY_LAST_DIALPAD_INPUT = "last_dialpad_input"
     private const val KEY_QUIET_ENABLED = "quiet_enabled"
     private const val KEY_QUIET_START = "quiet_start_min"
     private const val KEY_QUIET_END = "quiet_end_min"
@@ -108,6 +118,16 @@ object SettingsRepository {
     private val _accountFilter = MutableStateFlow<Set<String>>(emptySet())
     val accountFilter: StateFlow<Set<String>> get() = _accountFilter.asStateFlow()
 
+    /**
+     * Default storage account for newly created contacts. Empty string means
+     * "no preference set" — the editor falls back to
+     * [com.accessible.dialer.util.ContactAccounts.LOCAL_KEY] (Local / Phone
+     * only). User-set value is the standard account key encoding
+     * `"<type>|<name>"`.
+     */
+    private val _defaultContactAccount = MutableStateFlow("")
+    val defaultContactAccount: StateFlow<String> get() = _defaultContactAccount.asStateFlow()
+
     private val _blockMode = MutableStateFlow(BlockMode.Reject)
     val blockMode: StateFlow<BlockMode> get() = _blockMode.asStateFlow()
 
@@ -115,6 +135,14 @@ object SettingsRepository {
     // so the UI layer can map it to its private Tab enum without leaking the enum here.
     private val _lastTab = MutableStateFlow<String?>(null)
     val lastTab: StateFlow<String?> get() = _lastTab.asStateFlow()
+
+    /**
+     * Last text the user had in the dialpad input. Restored on next launch so
+     * the digits they typed before placing a call (or before the process was
+     * killed in the background) are still on the keypad when they come back.
+     */
+    private val _lastDialpadInput = MutableStateFlow("")
+    val lastDialpadInput: StateFlow<String> get() = _lastDialpadInput.asStateFlow()
 
     // --- Quiet hours -------------------------------------------------------
     // When enabled and the wall clock is inside [_quietStartMinute, _quietEndMinute),
@@ -184,8 +212,10 @@ object SettingsRepository {
         val id = prefs.getString(KEY_PHONE_ACCOUNT, null)
         _phoneAccount.value = if (pkg != null && cls != null && id != null) PhoneAccountRef(pkg, cls, id) else null
         _accountFilter.value = prefs.getStringSet(KEY_CONTACT_ACCOUNT_FILTER, emptySet())?.toSet() ?: emptySet()
+        _defaultContactAccount.value = prefs.getString(KEY_DEFAULT_CONTACT_ACCOUNT, "") ?: ""
         _blockMode.value = BlockMode.valueOf(prefs.getString(KEY_BLOCK_MODE, BlockMode.Reject.name) ?: BlockMode.Reject.name)
         _lastTab.value = prefs.getString(KEY_LAST_TAB, null)
+        _lastDialpadInput.value = prefs.getString(KEY_LAST_DIALPAD_INPUT, "") ?: ""
         _quietEnabled.value = prefs.getBoolean(KEY_QUIET_ENABLED, false)
         _quietStart.value = prefs.getInt(KEY_QUIET_START, 22 * 60).coerceIn(0, 1439)
         _quietEnd.value = prefs.getInt(KEY_QUIET_END, 7 * 60).coerceIn(0, 1439)
@@ -244,6 +274,17 @@ object SettingsRepository {
         prefs.edit { putStringSet(KEY_CONTACT_ACCOUNT_FILTER, keys) }
     }
 
+    /**
+     * Persist the default storage account used when creating a new contact.
+     * Pass an empty string to clear the preference (the editor reverts to
+     * Local / Phone only).
+     */
+    fun setDefaultContactAccount(key: String) {
+        if (_defaultContactAccount.value == key) return
+        _defaultContactAccount.value = key
+        prefs.edit { putString(KEY_DEFAULT_CONTACT_ACCOUNT, key) }
+    }
+
     fun setBlockMode(mode: BlockMode) {
         _blockMode.value = mode
         prefs.edit { putString(KEY_BLOCK_MODE, mode.name) }
@@ -252,6 +293,12 @@ object SettingsRepository {
     fun setLastTab(name: String) {
         _lastTab.value = name
         prefs.edit { putString(KEY_LAST_TAB, name) }
+    }
+
+    fun setLastDialpadInput(text: String) {
+        if (_lastDialpadInput.value == text) return
+        _lastDialpadInput.value = text
+        prefs.edit { putString(KEY_LAST_DIALPAD_INPUT, text) }
     }
 
     fun setQuietEnabled(v: Boolean) { _quietEnabled.value = v; prefs.edit { putBoolean(KEY_QUIET_ENABLED, v) } }

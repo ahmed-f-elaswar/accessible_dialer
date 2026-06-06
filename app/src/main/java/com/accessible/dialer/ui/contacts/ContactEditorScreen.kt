@@ -168,8 +168,18 @@ internal fun ContactEditorScreen(
     // contacts between accounts is done from Settings → Storage locations,
     // which can copy every field including group memberships in a single
     // batch — too heavyweight to bolt onto every save here).
+    //
+    // For a NEW contact the initial value comes from the user's configured
+    // default (Settings → Tools → Default storage for new contacts); blank or
+    // unset falls back to LOCAL_KEY so behaviour matches the historical
+    // default. Wrapped in rememberSaveable so a configuration change (rotate)
+    // doesn't reset the user's pick.
     var selectedAccountKey by rememberSaveable {
-        mutableStateOf(com.accessible.dialer.util.ContactAccounts.LOCAL_KEY)
+        mutableStateOf(
+            com.accessible.dialer.settings.SettingsRepository.defaultContactAccount.value
+                .takeIf { it.isNotBlank() }
+                ?: com.accessible.dialer.util.ContactAccounts.LOCAL_KEY
+        )
     }
 
     LaunchedEffect(contactId) {
