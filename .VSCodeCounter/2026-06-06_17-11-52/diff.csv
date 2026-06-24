@@ -1,0 +1,16 @@
+"filename", "language", "Markdown", "XML", "Kotlin", "PowerShell", "comment", "blank", "total"
+"d:\code\accessible_dialer\README.md", "Markdown", 85, 0, 0, 0, 0, 15, 100
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\DialerInCallService.kt", "Kotlin", 0, 0, 15, 0, 13, 0, 28
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallScreen.kt", "Kotlin", 0, 0, 83, 0, 26, 2, 111
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\Ringer.kt", "Kotlin", 0, 0, 35, 0, 26, 3, 64
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\settings\SettingsRepository.kt", "Kotlin", 0, 0, 18, 0, 25, 4, 47
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\DialerApp.kt", "Kotlin", 0, 0, 26, 0, 20, 2, 48
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactDetailsScreen.kt", "Kotlin", 0, 0, 12, 0, 0, 0, 12
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactEditorScreen.kt", "Kotlin", 0, 0, 4, 0, 6, 0, 10
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactsScreen.kt", "Kotlin", 0, 0, 51, 0, 17, 2, 70
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\recents\RecentsScreen.kt", "Kotlin", 0, 0, 32, 0, 18, 1, 51
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\SettingsScreen.kt", "Kotlin", 0, 0, 32, 0, 8, 0, 40
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\ToolsScreen.kt", "Kotlin", 0, 0, 89, 0, 13, 2, 104
+"d:\code\accessible_dialer\app\src\main\res\values\strings.xml", "XML", 0, 12, 0, 0, 0, 0, 12
+"d:\code\accessible_dialer\scripts\run-and-tail.ps1", "PowerShell", 0, 0, 0, -22, -2, -5, -29
+"Total", "-", 85, 12, 397, -22, 170, 26, 668

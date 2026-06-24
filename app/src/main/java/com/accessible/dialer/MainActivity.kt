@@ -49,6 +49,8 @@ import com.accessible.dialer.util.DialerPermissions
 import com.accessible.dialer.util.PhoneAccounts
 import com.accessible.dialer.util.ShakeDetector
 
+private const val NO_NUMBER_TOAST_KEY = "no_number_toast"
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,6 +80,19 @@ class MainActivity : ComponentActivity() {
         )?.let { key ->
             com.accessible.dialer.call.MissedCallNotifier.cancelForKey(this, key)
         }
+        // ACTION_SEND from the system Share sheet: scan EXTRA_TEXT for a phone
+        // number and route it into the same Call / Add to contact / Cancel
+        // prompt the clipboard detector uses. If no number is found, surface a
+        // short toast — we can't filter the Share menu by content at the
+        // manifest level, so we have to handle the "no number" case at runtime.
+        val sharedNumber: String? = extractSharedNumber(intent)
+        if (intent?.action == Intent.ACTION_SEND && sharedNumber == null) {
+            android.widget.Toast.makeText(
+                this,
+                getString(R.string.share_no_number_found),
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+        }
         // When another app hands us a tel: number we behave like a system dialer and place
         // the call immediately instead of waiting for the user to confirm on the keypad.
         val autoCall: Boolean = !initialNumber.isNullOrBlank()
@@ -87,6 +102,7 @@ class MainActivity : ComponentActivity() {
                 startOnContacts = startOnContacts,
                 startOnRecents = startOnRecents,
                 autoCall = autoCall,
+                sharedNumber = sharedNumber,
             )
         }
     }
@@ -115,11 +131,62 @@ class MainActivity : ComponentActivity() {
         if (!number.isNullOrBlank()) {
             placeCall(this, number)
         }
+        // Share-sheet ACTION_SEND can also arrive while the activity is already
+        // running (singleTask). Route the extracted number through the existing
+        // shared-flow channel so DialerApp's prompt fires the same way as on cold start.
+        if (intent.action == Intent.ACTION_SEND) {
+            val sn = extractSharedNumber(intent)
+            if (sn != null) {
+                SharedNumberBus.emit(sn)
+            } else {
+                android.widget.Toast.makeText(
+                    this,
+                    getString(R.string.share_no_number_found),
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
     }
 }
 
+/**
+ * Pulls a phone-number-shaped substring out of the share-sheet payload, mirroring
+ * the heuristic the clipboard-to-call prompt uses (5–20 digits, allow common
+ * separators / RTL marks). Returns the first match in left-to-right order.
+ */
+private fun extractSharedNumber(intent: Intent?): String? {
+    if (intent?.action != Intent.ACTION_SEND) return null
+    if (intent.type != "text/plain") return null
+    val payload = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
+    if (payload.isBlank()) return null
+    // Match runs of digits + standard separators, anchored on a digit or '+'.
+    // Drop trailing punctuation, then enforce 5–20 digits like the clipboard
+    // detector. The bounded character class keeps regex catastrophic backtracking
+    // off the table.
+    val regex = Regex("[+\\d][\\d\\s().\\-#*]{3,30}")
+    for (m in regex.findAll(payload)) {
+        val candidate = m.value.trim().trimEnd('.', ',', ';', ':')
+        val digits = candidate.count { it.isDigit() }
+        if (digits in 5..20) return candidate
+    }
+    return null
+}
+
+/**
+ * Tiny one-shot channel that lets [MainActivity.onNewIntent] hand a fresh
+ * share-sheet number to the already-composed DialerApp tree. A StateFlow with
+ * value=null means "nothing pending"; setting a non-null value fires a Compose
+ * collection, which the consumer must clear via [consume] after using it.
+ */
+object SharedNumberBus {
+    private val _flow = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val flow: kotlinx.coroutines.flow.StateFlow<String?> = _flow
+    fun emit(number: String) { _flow.value = number }
+    fun consume() { _flow.value = null }
+}
+
 @Composable
-private fun AppRoot(initialNumber: String?, startOnContacts: Boolean, startOnRecents: Boolean, autoCall: Boolean) {
+private fun AppRoot(initialNumber: String?, startOnContacts: Boolean, startOnRecents: Boolean, autoCall: Boolean, sharedNumber: String?) {
     val context = LocalContext.current
     val themeMode by SettingsRepository.theme.collectAsStateWithLifecycle()
     val textScale by SettingsRepository.textScale.collectAsStateWithLifecycle()
@@ -130,12 +197,13 @@ private fun AppRoot(initialNumber: String?, startOnContacts: Boolean, startOnRec
             startOnContacts = startOnContacts,
             startOnRecents = startOnRecents,
             autoCall = autoCall,
+            sharedNumber = sharedNumber,
         )
     }
 }
 
 @Composable
-private fun AppContent(initialNumber: String?, startOnContacts: Boolean, startOnRecents: Boolean, autoCall: Boolean) {
+private fun AppContent(initialNumber: String?, startOnContacts: Boolean, startOnRecents: Boolean, autoCall: Boolean, sharedNumber: String?) {
     val context = LocalContext.current
     var permissionsGranted by remember { mutableStateOf(DialerPermissions.allGranted(context)) }
     var isDefault by remember { mutableStateOf(DefaultDialer.isDefault(context)) }
@@ -232,6 +300,12 @@ private fun AppContent(initialNumber: String?, startOnContacts: Boolean, startOn
         }
     }
 
+    // Collect share-sheet numbers that arrived while we were already in the
+    // foreground (onNewIntent emits via [SharedNumberBus]). Merge with the
+    // cold-start sharedNumber prop so DialerApp sees a single source of truth.
+    val busShared by SharedNumberBus.flow.collectAsStateWithLifecycle()
+    val effectiveSharedNumber = busShared ?: sharedNumber
+
     DialerApp(
         initialNumber = initialNumber,
         startOnContacts = startOnContacts,
@@ -245,6 +319,8 @@ private fun AppContent(initialNumber: String?, startOnContacts: Boolean, startOn
         onPlaceCall = { number ->
             placeCall(context, number)
         },
+        sharedNumber = effectiveSharedNumber,
+        onSharedNumberConsumed = { SharedNumberBus.consume() },
     )
 }
 

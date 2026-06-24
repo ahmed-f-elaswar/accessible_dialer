@@ -83,6 +83,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.APP_CONTACTS" />
             </intent-filter>
+            <!-- Share-text entry point: the system Share sheet routes any plain-text
+                 share here. We can't filter by content at the manifest level (intent
+                 filters don't see EXTRA_TEXT), so we always appear; if the shared text
+                 doesn't contain a phone number we surface a toast and exit, otherwise
+                 we re-use the Call / Add to contact / Cancel prompt. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- In-call full screen UI launched by the InCallService -->
@@ -94,6 +104,9 @@
             android:turnScreenOn="true"
             android:excludeFromRecents="true"
             android:taskAffinity=""
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|keyboard|uiMode"
             android:theme="@style/Theme.AccessibleDialer" />
 
         <!-- InCallService: required to be the default dialer and handle calls -->
@@ -124,6 +137,18 @@
                 <action android:name="android.telecom.CallScreeningService" />
             </intent-filter>
         </service>
+
+        <!-- Receives the action buttons on the ongoing-call notification
+             (Answer / Decline / Mute / Speaker / Hang up). Not exported — only
+             our own PendingIntents target this component, which set it
+             explicitly by class. Declaring it in the manifest (instead of
+             registering at runtime in DialerInCallService) is what lets
+             explicit-component PendingIntents actually deliver: runtime
+             receivers have no component name, so explicit broadcasts skip
+             them entirely on modern Android. -->
+        <receiver
+            android:name=".call.InCallActionReceiver"
+            android:exported="false" />
     </application>
 
     <!-- Lets us discover the system speech recognizer service from the foreground

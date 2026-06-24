@@ -6,6 +6,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.PersistableBundle
 import android.provider.ContactsContract
 import android.widget.Toast
 import com.accessible.dialer.R
@@ -25,7 +26,14 @@ object RowActions {
     fun copyNumber(context: Context, number: String) {
         if (number.isBlank()) return
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("phone", number))
+        val clip = ClipData.newPlainText("phone", number)
+        // Tag the clip so [MainActivity]'s clipboard-to-call prompt can recognise
+        // it as our own and skip the "Call this number?" dialog — otherwise tapping
+        // Copy here would immediately bounce a confirmation dialog back at the user.
+        clip.description.extras = PersistableBundle().apply {
+            putBoolean("com.accessible.dialer.copied_internally", true)
+        }
+        clipboard.setPrimaryClip(clip)
         Toast.makeText(context, context.getString(R.string.number_copied), Toast.LENGTH_SHORT).show()
     }
 

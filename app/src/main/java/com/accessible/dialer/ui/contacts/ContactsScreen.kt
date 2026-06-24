@@ -50,6 +50,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -144,6 +145,15 @@ fun ContactsScreen(
         if (permissionsGranted && DialerPermissions.granted(context, Manifest.permission.READ_CONTACTS)) {
             vm.load(context)
         }
+    }
+
+    // Clear the search box whenever the user leaves the Contacts list — either
+    // by switching tabs or by opening a sub-screen (contact details / editor,
+    // which DialerApp renders as a full-screen overlay that unmounts this
+    // screen). Without this, a stale query persists in the shared ViewModel
+    // and the user comes back to a pre-filtered list they no longer wanted.
+    DisposableEffect(Unit) {
+        onDispose { vm.setQuery("") }
     }
 
     val filtered = remember(query, contacts) { filterContacts(contacts, query) }

@@ -28,11 +28,9 @@ class DialerInCallService : InCallService() {
     private val callbacks = mutableMapOf<Call, Call.Callback>()
     // BroadcastReceiver that handles the action buttons (Answer / Hang up / Mute /
     // Speaker) on the ongoing-call notification posted by [InCallNotifier].
-    // Registered dynamically (not in the manifest) so it is implicitly
-    // not-exported on every Android version, and so we never leak across
-    // service teardowns.
-    private val actionReceiver = InCallActionReceiver()
-    private var actionReceiverRegistered = false
+    // Declared in the manifest as exported=false so explicit-component
+    // PendingIntents can reach it; runtime registration didn't work because
+    // explicit broadcasts skip receivers with no manifest component.
     // The most recently-added call. We keep a reference (not just state) because the
     // ringer needs the call's PhoneAccountHandle to resolve a per-SIM ringtone
     // override, and the holder only exposes a phone number.
@@ -77,31 +75,13 @@ class DialerInCallService : InCallService() {
 
     override fun onCreate() {
         super.onCreate()
-        // Register the notification-action receiver for the lifetime of this
-        // service. Use the explicit not-exported flag on Android 13+ (API 33)
-        // so the receiver is reachable only via our own PendingIntents.
-        if (!actionReceiverRegistered) {
-            val filter = IntentFilter().apply {
-                addAction(InCallActionReceiver.ACTION_ANSWER)
-                addAction(InCallActionReceiver.ACTION_HANGUP)
-                addAction(InCallActionReceiver.ACTION_TOGGLE_MUTE)
-                addAction(InCallActionReceiver.ACTION_TOGGLE_SPEAKER)
-            }
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(actionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                @Suppress("UnspecifiedRegisterReceiverFlag")
-                registerReceiver(actionReceiver, filter)
-            }
-            actionReceiverRegistered = true
-        }
+        // InCallActionReceiver is declared in the manifest (exported=false) so
+        // explicit PendingIntents from the ongoing-call notification deliver
+        // straight to it. The runtime-registered version we had here was
+        // unreachable from explicit broadcasts and silently dropped every tap.
     }
 
     override fun onDestroy() {
-        if (actionReceiverRegistered) {
-            runCatching { unregisterReceiver(actionReceiver) }
-            actionReceiverRegistered = false
-        }
         InCallNotifier.cancel(applicationContext)
         super.onDestroy()
     }

@@ -93,7 +93,7 @@
     <string name="action_apply">Aplicar</string>
     <string name="action_cancel">Cancelar</string>
     <string name="cancel">Cancelar</string>
-    <string name="action_save_as_contact">Guardar como nuevo contacto</string>
+    <string name="action_save_as_contact">Añadir a contacto</string>
 
     <string name="settings_section_display">Pantalla</string>
     <string name="settings_section_contacts">Contactos</string>

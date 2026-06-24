@@ -326,15 +326,54 @@ object ContactOps {
      */
     fun openWhatsApp(context: Context, number: String) {
         if (number.isBlank()) return
-        // WhatsApp's wa.me handler requires digits only (with country code, no '+').
-        val digits = number.filter { it.isDigit() }
-        if (digits.isEmpty()) return
+        // WhatsApp's wa.me handler needs a fully-qualified international number
+        // (country code + subscriber digits, no '+'). If the contact is stored
+        // without a country code, [whatsappDigits] resolves the device's SIM /
+        // network / locale country and prepends it so the chat opens for the
+        // right person instead of an unrelated foreign number.
+        val digits = whatsappDigits(context, number)
+        if (digits.isNullOrEmpty()) {
+            Toast.makeText(context, R.string.action_whatsapp_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$digits")).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         runCatching { context.startActivity(intent) }.onFailure {
             Toast.makeText(context, R.string.action_whatsapp_unavailable, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * Resolve a wa.me-compatible digit string for [raw]:
+     *  - If the number is already in international form (leading '+'), trust it
+     *    and just strip the '+' and any formatting.
+     *  - Otherwise try to convert to E.164 using the device's country (SIM →
+     *    network → locale). If conversion succeeds, the result already starts
+     *    with the country code.
+     *  - If we can't determine a country, fall back to just digits — wa.me will
+     *    then surface a "phone number isn't on WhatsApp" hint rather than
+     *    silently opening a chat to the wrong country.
+     */
+    private fun whatsappDigits(context: Context, raw: String): String? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+        if (trimmed.startsWith("+")) {
+            return trimmed.filter { it.isDigit() }.ifEmpty { null }
+        }
+        val iso = deviceCountryIso(context)
+        val e164 = iso?.let { PhoneNumberUtils.formatNumberToE164(trimmed, it) }
+        return (e164 ?: trimmed).filter { it.isDigit() }.ifEmpty { null }
+    }
+
+    /** Best-effort device country (ISO 3166 alpha-2, uppercase) for E.164 formatting. */
+    private fun deviceCountryIso(context: Context): String? {
+        val tm = context.getSystemService(Context.TELEPHONY_SERVICE)
+            as? android.telephony.TelephonyManager
+        tm?.simCountryIso?.takeIf { it.isNotBlank() }?.let { return it.uppercase() }
+        tm?.networkCountryIso?.takeIf { it.isNotBlank() }?.let { return it.uppercase() }
+        val locale = context.resources.configuration.locales[0]
+        return locale?.country?.takeIf { it.isNotBlank() }?.uppercase()
     }
 
     /** Reads the current SEND_TO_VOICEMAIL flag for [contactId]. */

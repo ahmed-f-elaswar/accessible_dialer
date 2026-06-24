@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Accessible Dialer</string>
+    <string name="app_name">Dialer</string>
 
     <!-- Navigation tabs -->
     <string name="tab_dialpad">Keypad</string>
@@ -120,6 +120,11 @@
     <string name="action_send_message">Send message</string>
     <string name="action_copy_number">Copy number</string>
     <string name="number_copied">Number copied</string>
+    <!-- Shown when the user copies a phone number outside the app and switches back. -->
+    <string name="clipboard_call_title">Call this number?</string>
+    <string name="clipboard_call_message">%1$s was copied to your clipboard. Place a call now?</string>
+    <string name="clipboard_call_action_call">Call</string>
+    <string name="share_no_number_found">No phone number found in the shared text</string>
     <string name="contacts_favorite_indicator">Favorite</string>
     <string name="contacts_row">%1$s</string>
     <string name="contacts_row_favorite">Favorite, %1$s</string>
@@ -398,6 +403,7 @@
     <string name="duplicates_merge_confirm_message">Merge these contacts into one entry?\n\n%1$s</string>
     <string name="duplicates_merged">Contacts merged</string>
     <string name="duplicates_merge_failed">Could not merge contacts</string>
+    <string name="duplicates_stored_in">Stored in: %1$s</string>
     <string name="duplicates_merge_all">Merge all</string>
     <string name="duplicates_merge_all_confirm_title">Merge all duplicates?</string>
     <string name="duplicates_merge_all_confirm_message">This will merge or clean up %1$d duplicate group(s). Continue?</string>
@@ -545,7 +551,7 @@
     <string name="settings_sim_ringtone_clear">Use system default</string>
 
     <!-- Save unknown caller -->
-    <string name="action_save_as_contact">Save as new contact</string>
+    <string name="action_save_as_contact">Add to contact</string>
 
     <!-- Block unknown callers -->
     <string name="settings_block_unknown">Block unknown callers</string>

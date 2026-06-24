@@ -99,7 +99,7 @@
     <string name="action_apply">Appliquer</string>
     <string name="action_cancel">Annuler</string>
     <string name="cancel">Annuler</string>
-    <string name="action_save_as_contact">Enregistrer comme nouveau contact</string>
+    <string name="action_save_as_contact">Ajouter au contact</string>
 
     <!-- Settings sections -->
     <string name="settings_section_display">Affichage</string>

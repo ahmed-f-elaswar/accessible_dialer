@@ -211,7 +211,7 @@ fun DialpadScreen(
         // contacts provider already exposes for this exact dialer-style lookup
         // (matches digits against E.164-normalised numbers, and on most OEMs also
         // performs T9 matching against name letters).
-        DialpadSuggestions(query = number, onPick = { picked -> onNumberChange(picked) })
+        DialpadSuggestions(query = number, onCall = onCallNumber)
 
         // 4 rows of keys. Long-pressing a digit 1-9 fires its speed-dial binding
         // (if any) via [handleDigitLongPress]; otherwise the long-press is a no-op.
@@ -681,36 +681,23 @@ private data class DialpadMatch(val name: String, val number: String)
  * with the rest of the dialpad's "type then call" model and to keep the action
  * undoable.
  */
+/**
+ * Horizontally scrollable strip of contact matches that appears between the entered-
+ * number display and the dial keys. Empty / hidden when the user has typed fewer than
+ * two characters (avoids spamming the provider on every single keystroke) or when no
+ * contact matches. Tapping a chip immediately calls the matched number — the row is
+ * an explicit "call this contact" shortcut so the user doesn't have to also press the
+ * green Call button after picking.
+ */
 @Composable
-private fun DialpadSuggestions(query: String, onPick: (String) -> Unit) {
+private fun DialpadSuggestions(query: String, onCall: (String) -> Unit) {
     val context = LocalContext.current
     // Resolve matches off-thread; produceState recomputes when [query] changes. Capped
     // at 8 results to keep the query cheap and the row legible.
     val matches by produceState(initialValue = emptyList<DialpadMatch>(), query) {
         val q = query.trim()
         value = if (q.length < 2) emptyList() else kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                val uri = android.net.Uri.withAppendedPath(
-                    android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI,
-                    android.net.Uri.encode(q),
-                )
-                val out = mutableListOf<DialpadMatch>()
-                context.contentResolver.query(
-                    uri,
-                    arrayOf(
-                        android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                        android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER,
-                    ),
-                    null, null, null,
-                )?.use { c ->
-                    while (c.moveToNext() && out.size < 8) {
-                        val name = c.getString(0)?.takeIf { it.isNotBlank() }
-                        val number = c.getString(1)?.takeIf { it.isNotBlank() } ?: continue
-                        out += DialpadMatch(name = name ?: number, number = number)
-                    }
-                }
-                out
-            }.getOrDefault(emptyList())
+            runCatching { findMatches(context, q) }.getOrDefault(emptyList())
         }
     }
     if (matches.isEmpty()) return
@@ -729,7 +716,7 @@ private fun DialpadSuggestions(query: String, onPick: (String) -> Unit) {
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable(
-                        onClick = { onPick(m.number) },
+                        onClick = { onCall(m.number) },
                         onClickLabel = pickLabel,
                         role = Role.Button,
                     )
@@ -756,4 +743,108 @@ private fun DialpadSuggestions(query: String, onPick: (String) -> Unit) {
             }
         }
     }
+}
+
+/**
+ * Resolve contact matches for [query] using a normalized, country-code-tolerant
+ * heuristic that doesn't depend on OEM-specific [Phone.CONTENT_FILTER_URI] behavior:
+ *
+ *  1. Try the system's CONTENT_FILTER_URI with the user's raw query (catches T9
+ *     name matches and OEM-specific number prefix matches).
+ *  2. Strip separators from the query (spaces, dashes, parens, dots, leading '+')
+ *     and try CONTENT_FILTER_URI again with the digits-only form so a user who
+ *     types "0 100 555 1234" still hits "01005551234".
+ *  3. If the digit form has >=5 digits, do a database scan keyed by the *last 7*
+ *     digits (Android's MIN_MATCH heuristic). This is what catches country-code
+ *     variants: "01005551234" (local Egyptian form) and "+201005551234" (E.164)
+ *     share the last 7 digits "5551234", so they collide here even though
+ *     prefix-style matching would miss.
+ *
+ * Results are deduplicated by (name, number) and capped at 8.
+ */
+private fun findMatches(context: android.content.Context, query: String): List<DialpadMatch> {
+    val cr = context.contentResolver
+    val out = LinkedHashMap<String, DialpadMatch>()
+
+    fun addRow(name: String?, number: String?) {
+        val num = number?.takeIf { it.isNotBlank() } ?: return
+        val display = name?.takeIf { it.isNotBlank() } ?: num
+        val key = display + "\u0000" + num
+        if (key !in out) out[key] = DialpadMatch(display, num)
+    }
+
+    fun filterUriQuery(arg: String) {
+        if (out.size >= 8 || arg.isBlank()) return
+        val uri = android.net.Uri.withAppendedPath(
+            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI,
+            android.net.Uri.encode(arg),
+        )
+        runCatching {
+            cr.query(
+                uri,
+                arrayOf(
+                    android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ),
+                null, null, null,
+            )?.use { c ->
+                while (c.moveToNext() && out.size < 8) {
+                    addRow(c.getString(0), c.getString(1))
+                }
+            }
+        }
+    }
+
+    // 1) Raw query \u2014 names and OEM-normalized numbers.
+    filterUriQuery(query)
+
+    // 2) Digits-only query \u2014 separator tolerance.
+    val digits = query.filter { it.isDigit() }
+    if (digits.isNotEmpty() && digits != query) filterUriQuery(digits)
+
+    // 3) Suffix scan \u2014 country-code tolerance via the last 7 digits.
+    if (digits.length >= 5 && out.size < 8) {
+        val tail = if (digits.length >= 7) digits.takeLast(7) else digits
+        runCatching {
+            cr.query(
+                android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(
+                    android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ),
+                // LIKE '%xxxxxxx' on NORMALIZED_NUMBER is a full table scan but
+                // the result set is small for typical phonebooks and the user
+                // only sees this path when they've typed at least 5 digits.
+                "${android.provider.ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER} LIKE ?",
+                arrayOf("%$tail"),
+                "${android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} COLLATE NOCASE ASC LIMIT 16",
+            )?.use { c ->
+                while (c.moveToNext() && out.size < 8) {
+                    addRow(c.getString(0), c.getString(1))
+                }
+            }
+        }
+        // Fallback for rows where NORMALIZED_NUMBER is blank (some legacy contacts):
+        // re-scan by raw NUMBER LIKE %tail. Same suffix, broader match.
+        if (out.size < 8) {
+            runCatching {
+                cr.query(
+                    android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    arrayOf(
+                        android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                        android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER,
+                    ),
+                    "${android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER} LIKE ?",
+                    arrayOf("%$tail"),
+                    "${android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} COLLATE NOCASE ASC LIMIT 16",
+                )?.use { c ->
+                    while (c.moveToNext() && out.size < 8) {
+                        addRow(c.getString(0), c.getString(1))
+                    }
+                }
+            }
+        }
+    }
+
+    return out.values.toList()
 }

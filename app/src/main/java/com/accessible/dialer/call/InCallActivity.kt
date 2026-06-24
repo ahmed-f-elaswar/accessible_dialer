@@ -1,17 +1,23 @@
 package com.accessible.dialer.call
 
+import android.app.PendingIntent
+import android.app.PictureInPictureParams
+import android.app.RemoteAction
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.telecom.Call
 import android.telecom.TelecomManager
+import android.util.Rational
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.accessible.dialer.MainActivity
+import com.accessible.dialer.R
 import com.accessible.dialer.ui.theme.AccessibleDialerTheme
 
 /**
@@ -100,5 +106,115 @@ class InCallActivity : ComponentActivity() {
             }
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    /**
+     * Update Picture-in-Picture params whenever the activity is active. On API
+     * 31+ we set [PictureInPictureParams.Builder.setAutoEnterEnabled] so the
+     * system shrinks us into PIP automatically when the user navigates away
+     * (gesture-nav, recents, home button) — unlike [onUserLeaveHint] which
+     * doesn't fire reliably on modern gesture-nav builds. Older devices fall
+     * back to the [onUserLeaveHint] path below.
+     */
+    override fun onResume() {
+        super.onResume()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val ok = runCatching { setPictureInPictureParams(pipParams(autoEnter = true)) }.isSuccess
+            android.util.Log.d("InCallActivity", "onResume setPictureInPictureParams ok=$ok")
+        }
+    }
+
+    /**
+     * Pre-S devices (or any device where setAutoEnterEnabled isn't honored)
+     * still rely on manually entering PIP when the activity is paused. Calling
+     * enterPictureInPictureMode here covers cases where onUserLeaveHint doesn't
+     * fire (some gesture-nav builds skip it).
+     */
+    override fun onPause() {
+        super.onPause()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (isInPictureInPictureMode) return
+        if (isFinishing) return
+        val active = OngoingCallHolder.state.value as? CallState.Active
+        if (active == null || active.telecomState == Call.STATE_RINGING) {
+            android.util.Log.d(
+                "InCallActivity",
+                "onPause skip PIP active=${active?.telecomState}"
+            )
+            return
+        }
+        val entered = runCatching { enterPictureInPictureMode(pipParams()) }.getOrDefault(false)
+        android.util.Log.d("InCallActivity", "onPause enterPictureInPictureMode entered=$entered")
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: android.content.res.Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        android.util.Log.d(
+            "InCallActivity",
+            "onPictureInPictureModeChanged inPip=$isInPictureInPictureMode",
+        )
+    }
+
+    /**
+     * When the user leaves the call screen (home button, recents, switching apps),
+     * shrink the activity into a Picture-in-Picture window so the call stays
+     * visible as a floating control they can tap to return to. Equivalent to
+     * Zoom/Teams' floating bubble — PIP is the Android-native way of doing it
+     * for media/call activities. Only triggered when a call is currently live;
+     * if no call is active we let the activity background normally (the system
+     * InCallService is what keeps the call alive, not this activity).
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val active = OngoingCallHolder.state.value as? CallState.Active
+        if (active == null) {
+            android.util.Log.d("InCallActivity", "onUserLeaveHint no active call, skip PIP")
+            return
+        }
+        // Don't enter PIP while ringing — we want the full-screen incoming UI to
+        // stay visible so the user can answer; PIP would shrink it away.
+        if (active.telecomState == Call.STATE_RINGING) return
+        val entered = runCatching { enterPictureInPictureMode(pipParams()) }.getOrDefault(false)
+        android.util.Log.d("InCallActivity", "onUserLeaveHint entered=$entered")
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.O)
+    private fun pipParams(autoEnter: Boolean = false): PictureInPictureParams {
+        val builder = PictureInPictureParams.Builder()
+            // Square aspect: the in-call UI has a portrait orientation but the
+            // central content (avatar + buttons) reads fine in a square window
+            // and avoids the awkward tall-and-thin look of 9:16.
+            .setAspectRatio(Rational(1, 1))
+        if (autoEnter && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setAutoEnterEnabled(true)
+        }
+        // A single Hang up action surfaced inside the PIP window so the user can
+        // end the call without expanding it back to full screen.
+        runCatching {
+            val hangupIntent = Intent(this, InCallActionReceiver::class.java)
+                .setAction(InCallActionReceiver.ACTION_HANGUP)
+            val pi = PendingIntent.getBroadcast(
+                this,
+                1001,
+                hangupIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val icon = Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel)
+            builder.setActions(
+                listOf(
+                    RemoteAction(
+                        icon,
+                        getString(R.string.call_hangup),
+                        getString(R.string.call_hangup),
+                        pi,
+                    )
+                )
+            )
+        }
+        return builder.build()
     }
 }

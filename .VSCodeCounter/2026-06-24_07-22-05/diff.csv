@@ -1,0 +1,13 @@
+"filename", "language", "XML", "Kotlin", "comment", "blank", "total"
+"d:\code\accessible_dialer\app\src\main\AndroidManifest.xml", "XML", 8, 0, 5, 0, 13
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\MainActivity.kt", "Kotlin", 0, 46, 26, 4, 76
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallActivity.kt", "Kotlin", 0, 81, 30, 5, 116
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallNotifier.kt", "Kotlin", 0, 69, 28, 6, 103
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\DialerApp.kt", "Kotlin", 0, 79, 33, 3, 115
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactPickerDialog.kt", "Kotlin", 0, 67, 7, 1, 75
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\DuplicateScanScreen.kt", "Kotlin", 0, 58, 17, 2, 77
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\dialpad\DialpadScreen.kt", "Kotlin", 0, 51, 31, 7, 89
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\recents\RecentsViewModel.kt", "Kotlin", 0, 11, 5, 2, 18
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\RowActions.kt", "Kotlin", 0, 5, 3, 0, 8
+"d:\code\accessible_dialer\app\src\main\res\values\strings.xml", "XML", 5, 0, 1, 0, 6
+"Total", "-", 13, 467, 186, 30, 696

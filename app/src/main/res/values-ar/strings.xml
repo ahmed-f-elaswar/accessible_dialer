@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">الهاتف السهل</string>
+    <string name="app_name">الهاتف</string>
 
     <!-- Navigation tabs -->
     <string name="tab_dialpad">لوحة الأرقام</string>
@@ -100,7 +100,7 @@
     <string name="action_apply">تطبيق</string>
     <string name="action_cancel">إلغاء</string>
     <string name="cancel">إلغاء</string>
-    <string name="action_save_as_contact">حفظ كجهة اتصال جديدة</string>
+    <string name="action_save_as_contact">إضافة إلى جهة اتصال</string>
 
     <!-- Settings sections -->
     <string name="settings_section_display">العرض</string>

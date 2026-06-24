@@ -1,0 +1,139 @@
+Date : 2026-06-24 04:10:20
+Directory : d:\code\accessible_dialer
+Total : 73 files,  15497 codes, 2546 comments, 1126 blanks, all 19169 lines
+
+Languages
++--------------+------------+------------+------------+------------+------------+
+| language     | files      | code       | comment    | blank      | total      |
++--------------+------------+------------+------------+------------+------------+
+| Kotlin       |         54 |     13,813 |      2,408 |        882 |     17,103 |
+| XML          |         12 |      1,394 |        101 |        173 |      1,668 |
+| Markdown     |          1 |        147 |          0 |         29 |        176 |
+| Kotlinscript |          3 |         91 |          7 |         18 |        116 |
+| Batch        |          1 |         41 |         30 |         22 |         93 |
+| Properties   |          2 |         11 |          0 |          2 |         13 |
++--------------+------------+------------+------------+------------+------------+
+
+Directories
++------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                       | files      | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                          |         73 |     15,497 |      2,546 |      1,126 |     19,169 |
+| . (Files)                                                                                                  |          6 |        213 |         30 |         55 |        298 |
+| app                                                                                                        |         66 |     15,277 |      2,516 |      1,070 |     18,863 |
+| app (Files)                                                                                                |          1 |         71 |          7 |         15 |         93 |
+| app\src                                                                                                    |         65 |     15,206 |      2,509 |      1,055 |     18,770 |
+| app\src\main                                                                                               |         65 |     15,206 |      2,509 |      1,055 |     18,770 |
+| app\src\main (Files)                                                                                       |          1 |        105 |         37 |         10 |        152 |
+| app\src\main\java                                                                                          |         54 |     13,813 |      2,408 |        882 |     17,103 |
+| app\src\main\java\com                                                                                      |         54 |     13,813 |      2,408 |        882 |     17,103 |
+| app\src\main\java\com\accessible                                                                           |         54 |     13,813 |      2,408 |        882 |     17,103 |
+| app\src\main\java\com\accessible\dialer                                                                    |         54 |     13,813 |      2,408 |        882 |     17,103 |
+| app\src\main\java\com\accessible\dialer (Files)                                                            |          2 |        266 |         52 |         23 |        341 |
+| app\src\main\java\com\accessible\dialer\blocking                                                           |          3 |        196 |         79 |         29 |        304 |
+| app\src\main\java\com\accessible\dialer\call                                                               |         10 |      1,599 |        469 |        139 |      2,207 |
+| app\src\main\java\com\accessible\dialer\settings                                                           |          1 |        248 |         87 |         50 |        385 |
+| app\src\main\java\com\accessible\dialer\ui                                                                 |         26 |     10,075 |      1,270 |        498 |     11,843 |
+| app\src\main\java\com\accessible\dialer\ui (Files)                                                         |          1 |        560 |        137 |         27 |        724 |
+| app\src\main\java\com\accessible\dialer\ui\blocking                                                        |          1 |        181 |          0 |          9 |        190 |
+| app\src\main\java\com\accessible\dialer\ui\contacts                                                        |          9 |      5,534 |        589 |        283 |      6,406 |
+| app\src\main\java\com\accessible\dialer\ui\dialpad                                                         |          1 |        615 |        117 |         28 |        760 |
+| app\src\main\java\com\accessible\dialer\ui\favorites                                                       |          1 |         60 |          0 |          6 |         66 |
+| app\src\main\java\com\accessible\dialer\ui\help                                                            |          1 |        106 |          8 |          7 |        121 |
+| app\src\main\java\com\accessible\dialer\ui\recents                                                         |          2 |      1,004 |        270 |         46 |      1,320 |
+| app\src\main\java\com\accessible\dialer\ui\settings                                                        |          7 |      1,531 |        104 |         63 |      1,698 |
+| app\src\main\java\com\accessible\dialer\ui\storage                                                         |          1 |        411 |         41 |         20 |        472 |
+| app\src\main\java\com\accessible\dialer\ui\theme                                                           |          2 |         73 |          4 |          9 |         86 |
+| app\src\main\java\com\accessible\dialer\util                                                               |         10 |      1,136 |        379 |        112 |      1,627 |
+| app\src\main\java\com\accessible\dialer\voice                                                              |          2 |        293 |         72 |         31 |        396 |
+| app\src\main\res                                                                                           |         10 |      1,288 |         64 |        163 |      1,515 |
+| app\src\main\res\drawable                                                                                  |          1 |          9 |          0 |          1 |         10 |
+| app\src\main\res\mipmap-anydpi-v26                                                                         |          2 |         10 |          0 |          2 |         12 |
+| app\src\main\res\values                                                                                    |          3 |        593 |         35 |         52 |        680 |
+| app\src\main\res\values-ar                                                                                 |          1 |        168 |         13 |         27 |        208 |
+| app\src\main\res\values-de                                                                                 |          1 |        172 |          2 |         27 |        201 |
+| app\src\main\res\values-es                                                                                 |          1 |        168 |          2 |         27 |        197 |
+| app\src\main\res\values-fr                                                                                 |          1 |        168 |         12 |         27 |        207 |
+| gradle                                                                                                     |          1 |          7 |          0 |          1 |          8 |
+| gradle\wrapper                                                                                             |          1 |          7 |          0 |          1 |          8 |
++------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+
+| filename                                                                                                   | language     | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+
+| d:\code\accessible_dialer\README.md                                                                        | Markdown     |        147 |          0 |         29 |        176 |
+| d:\code\accessible_dialer\app\build.gradle.kts                                                             | Kotlinscript |         71 |          7 |         15 |         93 |
+| d:\code\accessible_dialer\app\src\main\AndroidManifest.xml                                                 | XML          |        105 |         37 |         10 |        152 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\DialerApplication.kt                     | Kotlin       |          9 |          4 |          3 |         16 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\MainActivity.kt                          | Kotlin       |        257 |         48 |         20 |        325 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\blocking\BlockedNumbersRepository.kt     | Kotlin       |        105 |         22 |         11 |        138 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\blocking\BlockingCallScreeningService.kt | Kotlin       |         43 |         34 |          7 |         84 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\blocking\QuietHours.kt                   | Kotlin       |         48 |         23 |         11 |         82 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\DialerInCallService.kt              | Kotlin       |        295 |        153 |         28 |        476 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallActionReceiver.kt             | Kotlin       |         35 |         11 |          5 |         51 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallActivity.kt                   | Kotlin       |         67 |         31 |          7 |        105 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallNotifier.kt                   | Kotlin       |        114 |         27 |         13 |        154 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallScreen.kt                     | Kotlin       |        625 |         95 |         19 |        739 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\MissedCallNotifier.kt               | Kotlin       |        123 |         46 |         20 |        189 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\OngoingCallHolder.kt                | Kotlin       |         83 |         21 |         17 |        121 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\ProximitySpeakerController.kt       | Kotlin       |         44 |         13 |          8 |         65 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\RingVolumeKeyInterceptor.kt         | Kotlin       |         57 |         19 |          7 |         83 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\Ringer.kt                           | Kotlin       |        156 |         53 |         15 |        224 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\settings\SettingsRepository.kt           | Kotlin       |        248 |         87 |         50 |        385 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\DialerApp.kt                          | Kotlin       |        560 |        137 |         27 |        724 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\blocking\BlockedNumbersScreen.kt      | Kotlin       |        181 |          0 |          9 |        190 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactDetailsScreen.kt      | Kotlin       |      1,387 |        103 |         66 |      1,556 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactEditorScreen.kt       | Kotlin       |        974 |         97 |         47 |      1,118 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactPickerDialog.kt       | Kotlin       |        143 |          8 |          4 |        155 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactsScreen.kt            | Kotlin       |        791 |         96 |         25 |        912 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactsViewModel.kt         | Kotlin       |        160 |         19 |         13 |        192 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\DuplicateDismissals.kt       | Kotlin       |         20 |          6 |          6 |         32 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\DuplicateScanScreen.kt       | Kotlin       |        573 |         38 |         27 |        638 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\NameFixScreen.kt             | Kotlin       |        912 |         86 |         65 |      1,063 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\NameNormalizeScreen.kt       | Kotlin       |        574 |        136 |         30 |        740 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\dialpad\DialpadScreen.kt              | Kotlin       |        615 |        117 |         28 |        760 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\favorites\FavoritesScreen.kt          | Kotlin       |         60 |          0 |          6 |         66 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\help\UserGuideScreen.kt               | Kotlin       |        106 |          8 |          7 |        121 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\recents\RecentsScreen.kt              | Kotlin       |        588 |        100 |         20 |        708 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\recents\RecentsViewModel.kt           | Kotlin       |        416 |        170 |         26 |        612 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\AccessibilityScreen.kt       | Kotlin       |        145 |          4 |          8 |        157 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\BlockingScreen.kt            | Kotlin       |        116 |          5 |          6 |        127 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\CallingScreen.kt             | Kotlin       |        130 |          5 |          7 |        142 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\DisplayScreen.kt             | Kotlin       |         91 |          5 |          6 |        102 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\RingtonesScreen.kt           | Kotlin       |        107 |          7 |          6 |        120 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\SettingsScreen.kt            | Kotlin       |        714 |         54 |         22 |        790 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\settings\ToolsScreen.kt               | Kotlin       |        228 |         24 |          8 |        260 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\storage\StorageLocationsScreen.kt     | Kotlin       |        411 |         41 |         20 |        472 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\theme\Theme.kt                        | Kotlin       |         58 |          3 |          6 |         67 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\theme\Type.kt                         | Kotlin       |         15 |          1 |          3 |         19 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\ContactAccounts.kt                  | Kotlin       |        253 |        119 |         20 |        392 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\ContactOps.kt                       | Kotlin       |        352 |         81 |         24 |        457 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\ContactPorting.kt                   | Kotlin       |        170 |         31 |         19 |        220 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\DefaultDialer.kt                    | Kotlin       |         19 |          8 |          5 |         32 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\DialerPermissions.kt                | Kotlin       |         18 |          5 |          5 |         28 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\PhoneAccounts.kt                    | Kotlin       |         41 |         15 |          6 |         62 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\RowActions.kt                       | Kotlin       |         68 |         21 |          8 |         97 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\ShakeDetector.kt                    | Kotlin       |         53 |         19 |         10 |         82 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\UpdateChecker.kt                    | Kotlin       |         72 |         42 |          8 |        122 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\Updater.kt                          | Kotlin       |         90 |         38 |          7 |        135 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\voice\VoiceSearch.kt                     | Kotlin       |        131 |         46 |         22 |        199 |
+| d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\voice\VoiceSearchSheet.kt                | Kotlin       |        162 |         26 |          9 |        197 |
+| d:\code\accessible_dialer\app\src\main\res\drawable\ic_launcher_foreground.xml                             | XML          |          9 |          0 |          1 |         10 |
+| d:\code\accessible_dialer\app\src\main\res\mipmap-anydpi-v26\ic_launcher.xml                               | XML          |          5 |          0 |          1 |          6 |
+| d:\code\accessible_dialer\app\src\main\res\mipmap-anydpi-v26\ic_launcher_round.xml                         | XML          |          5 |          0 |          1 |          6 |
+| d:\code\accessible_dialer\app\src\main\res\values-ar\strings.xml                                           | XML          |        168 |         13 |         27 |        208 |
+| d:\code\accessible_dialer\app\src\main\res\values-de\strings.xml                                           | XML          |        172 |          2 |         27 |        201 |
+| d:\code\accessible_dialer\app\src\main\res\values-es\strings.xml                                           | XML          |        168 |          2 |         27 |        197 |
+| d:\code\accessible_dialer\app\src\main\res\values-fr\strings.xml                                           | XML          |        168 |         12 |         27 |        207 |
+| d:\code\accessible_dialer\app\src\main\res\values\colors.xml                                               | XML          |          4 |          0 |          1 |          5 |
+| d:\code\accessible_dialer\app\src\main\res\values\strings.xml                                              | XML          |        581 |         34 |         50 |        665 |
+| d:\code\accessible_dialer\app\src\main\res\values\themes.xml                                               | XML          |          8 |          1 |          1 |         10 |
+| d:\code\accessible_dialer\build.gradle.kts                                                                 | Kotlinscript |          4 |          0 |          1 |          5 |
+| d:\code\accessible_dialer\gradle.properties                                                                | Properties   |          4 |          0 |          1 |          5 |
+| d:\code\accessible_dialer\gradle\wrapper\gradle-wrapper.properties                                         | Properties   |          7 |          0 |          1 |          8 |
+| d:\code\accessible_dialer\gradlew.bat                                                                      | Batch        |         41 |         30 |         22 |         93 |
+| d:\code\accessible_dialer\settings.gradle.kts                                                              | Kotlinscript |         16 |          0 |          2 |         18 |
+| d:\code\accessible_dialer\ui.xml                                                                           | XML          |          1 |          0 |          0 |          1 |
+| Total                                                                                                      |              |     15,497 |      2,546 |      1,126 |     19,169 |
++------------------------------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+

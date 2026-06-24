@@ -1,5 +1,6 @@
 package com.accessible.dialer.ui.contacts
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -111,15 +114,87 @@ internal fun ContactPickerDialog(
                         Text(stringResource(R.string.contacts_empty))
                     }
                 } else {
+                    // Group by first letter with a per-letter expand/collapse map,
+                    // matching the main Contacts tab so users get the same affordances
+                    // (jump-by-letter, fold long sections) wherever they pick a contact.
+                    // Non-alphabetic starts — numbers, symbols, emoji — are bucketed
+                    // under '#' and sorted to the bottom, again mirroring ContactsScreen.
+                    val grouped = remember(filtered) {
+                        filtered
+                            .groupBy { c ->
+                                val first = c.name.trim().firstOrNull()?.uppercaseChar()
+                                if (first != null && first.isLetter()) first else '#'
+                            }
+                            .toSortedMap(compareBy { if (it == '#') Char.MAX_VALUE else it })
+                    }
+                    val expanded = remember { mutableStateMapOf<Char, Boolean>() }
                     LazyColumn(Modifier.fillMaxSize()) {
-                        items(filtered, key = { it.id }) { c ->
-                            ContactPickerRow(c, onPick = { onPick(c) })
-                            HorizontalDivider()
+                        grouped.forEach { (letter, items) ->
+                            val isExpanded = expanded[letter] ?: true
+                            item(key = "header_$letter") {
+                                PickerSectionHeader(
+                                    letter = letter,
+                                    count = items.size,
+                                    expanded = isExpanded,
+                                    onToggle = { expanded[letter] = !isExpanded },
+                                )
+                            }
+                            if (isExpanded) {
+                                items(items.size, key = { i -> items[i].id }) { i ->
+                                    val c = items[i]
+                                    ContactPickerRow(c, onPick = { onPick(c) })
+                                    HorizontalDivider()
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PickerSectionHeader(
+    letter: Char,
+    count: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val collapseLabel = stringResource(R.string.contacts_section_collapse)
+    val expandLabel = stringResource(R.string.contacts_section_expand)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(
+                onClick = onToggle,
+                onClickLabel = if (expanded) collapseLabel else expandLabel,
+                role = Role.Button,
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            // Merge children so TalkBack reads the header once instead of three
+            // separate nodes (letter, count, chevron).
+            .semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = letter.toString(),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.size(12.dp))
+        Text(
+            text = stringResource(R.string.contacts_section_count, count),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

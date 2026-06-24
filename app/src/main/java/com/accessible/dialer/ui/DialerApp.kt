@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -55,6 +58,8 @@ import com.accessible.dialer.ui.favorites.FavoritesScreen
 import com.accessible.dialer.ui.recents.RecentsScreen
 import com.accessible.dialer.ui.recents.RecentsViewModel
 import com.accessible.dialer.ui.settings.SettingsScreen
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 private enum class Tab(val labelRes: Int) {
@@ -86,6 +91,14 @@ fun DialerApp(
     onRequestPermissions: () -> Unit,
     onRequestDefaultDialer: () -> Unit,
     onPlaceCall: (String) -> Unit,
+    /**
+     * Phone number extracted from a system Share-sheet payload; surfaces the
+     * same Call / Add to contact / Cancel dialog the clipboard detector uses.
+     * [onSharedNumberConsumed] is invoked once we route the number into the
+     * prompt so MainActivity can clear its one-shot bus.
+     */
+    sharedNumber: String? = null,
+    onSharedNumberConsumed: () -> Unit = {},
 ) {
     // Initial tab priority:
     //   1. explicit intent override (startOnContacts / startOnRecents) — viewing
@@ -218,6 +231,77 @@ fun DialerApp(
     // hanging. Number is normalized only at the final call site (ContactEditor).
     var saveContactChoiceNumber by rememberSaveable { mutableStateOf<String?>(null) }
     var addNumberToExistingFor by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Clipboard-to-action prompt: when the user copies a phone number elsewhere
+    // and switches back to the dialer, offer Call / Add to contact / Cancel.
+    // Lives inside DialerApp — not MainActivity — so the "Add to contact" button
+    // can hand the number straight into the existing [saveContactChoiceNumber]
+    // flow (Create new → ContactEditor or Add to existing → ContactPickerDialog).
+    var clipboardPromptNumber by remember { mutableStateOf<String?>(null) }
+    val lastPromptedClipboard = remember { mutableStateOf<String?>(null) }
+
+    // Share-sheet entry: when MainActivity finds a phone number in the
+    // ACTION_SEND payload it passes it here, and we surface it through the
+    // same prompt as the clipboard detector. We deliberately don't update
+    // [lastPromptedClipboard] so the next clipboard pass for the same value
+    // still works normally.
+    androidx.compose.runtime.LaunchedEffect(sharedNumber) {
+        val s = sharedNumber
+        if (!s.isNullOrBlank()) {
+            clipboardPromptNumber = s
+            onSharedNumberConsumed()
+        }
+    }
+    val clipboardCtx = LocalContext.current
+    val clipboardLifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(clipboardLifecycle, permissionsGranted) {
+        if (!permissionsGranted) return@DisposableEffect onDispose { }
+        val cm = clipboardCtx.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+            as? android.content.ClipboardManager
+            ?: return@DisposableEffect onDispose { }
+        fun checkClipboard() {
+            val clip = cm.primaryClip ?: return
+            if (clip.itemCount == 0) return
+            // Skip clips that came from inside the dialer itself — RowActions.copyNumber
+            // stamps an extras flag on the ClipDescription so we recognise our own clips
+            // reliably (label-based matching collided with other apps that used "phone").
+            if (clip.description?.extras?.getBoolean("com.accessible.dialer.copied_internally") == true) {
+                return
+            }
+            val raw = clip.getItemAt(0).coerceToText(clipboardCtx)?.toString().orEmpty()
+            val text = raw.trim()
+            if (text.isEmpty() || text == lastPromptedClipboard.value) return
+            // Phone-number-ish heuristic: 5–20 digits, and digits outnumber (or equal)
+            // the non-digit chars — lets "+1 (234) 567-8900" pass and rejects free-form
+            // text like "Order #12345". Tolerates Unicode whitespace / RTL marks /
+            // narrow no-break spaces that messaging apps tend to inject.
+            val digits = text.count { it.isDigit() }
+            if (digits < 5 || digits > 20) return
+            if (text.length - digits > digits) return
+            android.util.Log.d("ClipboardCall", "Prompting for clipboard number: $text")
+            lastPromptedClipboard.value = text
+            clipboardPromptNumber = text
+        }
+        // Android 10+ blocks ClipboardManager.getPrimaryClip() unless the calling app
+        // is focused; ON_RESUME fires *before* the window gains focus, so an immediate
+        // read silently returns null. Defer the check by ~350 ms on the main thread —
+        // long enough for focus to land, short enough to still feel instant.
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val pendingCheck = Runnable { checkClipboard() }
+        fun scheduleCheck() {
+            handler.removeCallbacks(pendingCheck)
+            handler.postDelayed(pendingCheck, 350L)
+        }
+        val obs = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) scheduleCheck()
+        }
+        clipboardLifecycle.addObserver(obs)
+        scheduleCheck()
+        onDispose {
+            handler.removeCallbacks(pendingCheck)
+            clipboardLifecycle.removeObserver(obs)
+        }
+    }
 
     // List scroll state hoisted up here so it survives the early-return swap-outs
     // for ContactDetails / ContactEditor / Settings sub-screens. `rememberLazyListState`
@@ -490,6 +574,37 @@ fun DialerApp(
         )
     }
 
+    // Clipboard prompt: Call / Add to contact / Cancel. "Add to contact" hands the
+    // number off to [saveContactChoiceNumber] so it routes through the same Create
+    // new / Add to existing chooser used by Recents' row action.
+    clipboardPromptNumber?.let { number ->
+        AlertDialog(
+            onDismissRequest = { clipboardPromptNumber = null },
+            title = { Text(stringResource(R.string.clipboard_call_title)) },
+            text = { Text(stringResource(R.string.clipboard_call_message, number)) },
+            confirmButton = {
+                // Two primary actions stacked horizontally. The chooser's outside-tap
+                // and back-press both route through onDismissRequest, so Cancel is
+                // also offered as an explicit dismissButton for discoverability.
+                Row {
+                    TextButton(onClick = {
+                        clipboardPromptNumber = null
+                        saveContactChoiceNumber = number
+                    }) { Text(stringResource(R.string.action_save_as_contact)) }
+                    TextButton(onClick = {
+                        clipboardPromptNumber = null
+                        onPlaceCall(number)
+                    }) { Text(stringResource(R.string.clipboard_call_action_call)) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { clipboardPromptNumber = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             if (showSettings) {
@@ -631,7 +746,18 @@ fun DialerApp(
                     Tab.Dialpad -> DialpadScreen(
                         number = dialpadNumber,
                         onNumberChange = { dialpadNumber = it },
-                        onCall = { onPlaceCall(dialpadNumber) },
+                        // Clear the on-screen digits as soon as a call is placed
+                        // from the dialpad. Without this, returning to the app
+                        // after the call still shows the previously dialed
+                        // number, which the user then has to manually erase
+                        // before dialing again.
+                        onCall = {
+                            val toDial = dialpadNumber
+                            if (toDial.isNotBlank()) {
+                                onPlaceCall(toDial)
+                                dialpadNumber = ""
+                            }
+                        },
                         onCallNumber = onPlaceCall,
                         permissionsGranted = permissionsGranted,
                     )

@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.CallLog
 import android.provider.ContactsContract
-import android.telephony.PhoneNumberUtils
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -293,18 +292,33 @@ class RecentsViewModel : ViewModel() {
     }
 
     /**
-     * Fetch the next [PAGE_SIZE] raw call-log rows starting at [rawOffset], dedupe by
-     * contact (using the running [seen] set so cross-page duplicates are also skipped),
-     * and append the new entries to [_entries]. Marks [_endReached] when the underlying
-     * cursor returns fewer rows than the page size — that's the only reliable signal
-     * that we've drained the call log, since SQLite OFFSET past the end just returns 0
-     * rows without error.
+     * Fetch raw call-log rows starting at [rawOffset] and append deduped entries
+     * to [_entries]. Loops internally until at least [MIN_NEW_PER_LOAD_MORE]
+     * visible new rows have been added or the underlying cursor is drained — with
+     * name-based dedup a single 500-row raw page can collapse to zero new
+     * contact-rows (a chatty contact called many times in a row), and without
+     * this loop the [_entries.size]-keyed pagination sentinel would stop firing
+     * even though we have plenty of unseen history left.
      */
     private fun fetchNextPage(context: Context) {
         if (_endReached.value) return
         _loading.value = true
         try {
-            val projection = arrayOf(
+            var newAppendedSoFar = 0
+            while (!_endReached.value && newAppendedSoFar < MIN_NEW_PER_LOAD_MORE) {
+                val before = _entries.value.size
+                fetchOneRawPage(context)
+                val added = _entries.value.size - before
+                if (added == 0 && _endReached.value) break
+                newAppendedSoFar += added
+            }
+        } finally {
+            _loading.value = false
+        }
+    }
+
+    private fun fetchOneRawPage(context: Context) {
+        val projection = arrayOf(
                 CallLog.Calls._ID,
                 CallLog.Calls.NUMBER,
                 CallLog.Calls.CACHED_NAME,
@@ -373,9 +387,6 @@ class RecentsViewModel : ViewModel() {
             if (appended.isNotEmpty()) {
                 _entries.value = _entries.value + appended
             }
-        } finally {
-            _loading.value = false
-        }
     }
 
     /**
@@ -524,25 +535,33 @@ class RecentsViewModel : ViewModel() {
     }
 
     private fun dedupeKey(entry: CallLogEntry): String {
+        // Collapse all calls belonging to the same contact onto a single row,
+        // including calls placed/received on different numbers (mobile / work
+        // / landline) for that contact. Because the live-overlay pass in
+        // [fetchNextPage] resolves CACHED_NAME → PhoneLookup display name
+        // before this runs, a contact's two numbers will share the same
+        // [entry.displayName] and therefore the same dedupe key.
+        //
+        // Falls back to a number-based key when the call has no associated
+        // contact (private/anonymous calls and unsaved numbers), so unsaved
+        // numbers still collapse correctly by themselves.
+        val name = entry.displayName?.trim().orEmpty()
+        if (name.isNotEmpty()) return "name:" + name.lowercase()
+
         val raw = entry.number.trim()
         if (raw.isEmpty()) {
             // Anonymous / private calls have no number; collapse them into one row.
             return "__private__"
         }
-        // `normalizeNumber` only strips formatting (spaces, dashes, parentheses) — it
-        // does NOT reconcile country-code variants. So "+12025551234" and "2025551234"
-        // for the same contact would still hash to different keys and surface as two
-        // rows. Use the last 7 digits (Android's MIN_MATCH heuristic, the same rule
-        // PhoneNumberUtils.compare uses) so country-code / trunk-prefix variants of the
-        // same line collapse into one entry. For short numbers (service codes, short
-        // codes) fall back to the full normalized form so we don't merge unrelated
-        // 3-/4-digit codes that happen to share trailing digits.
+        // For unsaved numbers, use the last 7 digits (Android's MIN_MATCH
+        // heuristic, the same rule PhoneNumberUtils.compare uses) so
+        // country-code / trunk-prefix variants of the same line collapse
+        // into one entry. For short numbers (service codes) fall back to
+        // the full digit string so we don't merge unrelated 3-/4-digit
+        // codes that happen to share trailing digits.
         val digits = raw.filter { it.isDigit() }
-        if (digits.isEmpty()) {
-            val normalized = PhoneNumberUtils.normalizeNumber(raw)
-            return normalized.ifEmpty { raw }
-        }
-        return if (digits.length >= 7) digits.takeLast(7) else digits
+        if (digits.isEmpty()) return raw
+        return "num:" + if (digits.length >= 7) digits.takeLast(7) else digits
     }
 
     companion object {
@@ -550,6 +569,12 @@ class RecentsViewModel : ViewModel() {
         // pass is O(N) and the IO query is the dominant cost) and not having to round-
         // trip to the call-log provider on every scroll tick.
         private const val PAGE_SIZE = 500
+
+        // Each loadMore must yield at least this many visible new rows before the
+        // ViewModel hands control back to the UI — otherwise a chatty contact (many
+        // consecutive calls that all dedupe to one name) can cause a single 500-row
+        // page to produce zero new rows, stalling pagination.
+        private const val MIN_NEW_PER_LOAD_MORE = 20
     }
 }
 

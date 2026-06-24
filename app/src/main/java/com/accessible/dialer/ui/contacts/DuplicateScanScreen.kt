@@ -65,6 +65,12 @@ internal data class DuplicateGroup(
     val reason: String,
     val contactIds: List<Long>,
     val displayNames: List<String>,
+    /**
+     * Per-contact account-key set, e.g. `42L -> {"com.google|me@gmail.com"}` so the
+     * UI can render where each side of the pair is stored. Multi-account aggregated
+     * contacts get >1 key. Missing or empty falls back to the synthetic local key.
+     */
+    val accountKeysByContactId: Map<Long, Set<String>> = emptyMap(),
     // When set, "merging" means deleting these Data rows (keeping one phone row per
     // normalized number on a single contact) rather than aggregating multiple
     // contacts together. Used for the intra-contact "same number listed twice" case.
@@ -307,6 +313,7 @@ private fun DuplicateGroupRow(
     onMerge: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -314,11 +321,29 @@ private fun DuplicateGroupRow(
             .semantics(mergeDescendants = true) {},
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(
-            text = group.displayNames.joinToString(" Â· "),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+        // One row per contact in the group so the user can see "Jane (Google) +
+        // Jane (SIM 1)" at a glance and decide whether merging is sensible.
+        group.contactIds.forEachIndexed { i, id ->
+            val name = group.displayNames.getOrNull(i) ?: "(unnamed)"
+            val keys = group.accountKeysByContactId[id].orEmpty()
+            val storage = if (keys.isEmpty()) {
+                friendlyAccountLabel(context, com.accessible.dialer.util.ContactAccounts.LOCAL_KEY)
+            } else {
+                keys.joinToString(", ") { friendlyAccountLabel(context, it) }
+            }
+            Column {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.duplicates_stored_in, storage),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Text(
             text = group.reason,
             style = MaterialTheme.typography.bodySmall,
@@ -416,6 +441,39 @@ private fun scanDuplicates(context: Context, smart: Boolean = false): List<Dupli
     }
 
     val rows = rowsById.values.toList()
+
+    // One pass over RawContacts to gather every account each aggregated contact
+    // is backed by. Cheaper than per-group queries, and we need it for the
+    // "stored in" line under each contact name in the merge UI.
+    val accountKeysByContactId = mutableMapOf<Long, MutableSet<String>>()
+    runCatching {
+        cr.query(
+            ContactsContract.RawContacts.CONTENT_URI,
+            arrayOf(
+                ContactsContract.RawContacts.CONTACT_ID,
+                ContactsContract.RawContacts.ACCOUNT_TYPE,
+                ContactsContract.RawContacts.ACCOUNT_NAME,
+            ),
+            "${ContactsContract.RawContacts.DELETED}=0",
+            null,
+            null,
+        )?.use { c ->
+            val idIdx = c.getColumnIndexOrThrow(ContactsContract.RawContacts.CONTACT_ID)
+            val tIdx = c.getColumnIndexOrThrow(ContactsContract.RawContacts.ACCOUNT_TYPE)
+            val nIdx = c.getColumnIndexOrThrow(ContactsContract.RawContacts.ACCOUNT_NAME)
+            while (c.moveToNext()) {
+                val type = c.getString(tIdx)
+                val name = c.getString(nIdx)
+                val key = if (type == null && name == null) {
+                    com.accessible.dialer.util.ContactAccounts.LOCAL_KEY
+                } else {
+                    "${type ?: "null"}|${name ?: "null"}"
+                }
+                accountKeysByContactId.getOrPut(c.getLong(idIdx)) { mutableSetOf() }.add(key)
+            }
+        }
+    }
+
     val phoneIdx = mutableMapOf<String, MutableSet<Long>>()
     val emailIdx = mutableMapOf<String, MutableSet<Long>>()
     val nameIdx = mutableMapOf<String, MutableSet<Long>>()
@@ -436,10 +494,26 @@ private fun scanDuplicates(context: Context, smart: Boolean = false): List<Dupli
         val sortedIds = ids.sorted()
         val signature = reasonKey + ":" + sortedIds.joinToString(",")
         if (!seenSignatures.add(signature)) return
+        val accountsMap = sortedIds.associateWith {
+            accountKeysByContactId[it]?.toSet().orEmpty()
+        }
+        // Skip groups whose contacts live in disjoint accounts. The user keeps
+        // separate copies in (say) Google vs. SIM on purpose \u2014 surfacing them as
+        // a "duplicate" would push them into merging accounts they want kept
+        // apart. We only flag a group when every contact in it shares at least
+        // one account with every other contact; contacts with no account at all
+        // (the synthetic local bucket) are treated as a wildcard so legitimate
+        // intra-account dupes that include a phone-only entry still surface.
+        val accountSets = sortedIds.map { accountsMap[it].orEmpty() }
+        val withRealAccounts = accountSets.filter { it.isNotEmpty() }
+        if (withRealAccounts.size >= 2) {
+            val shared = withRealAccounts.reduce { acc, next -> acc.intersect(next) }
+            if (shared.isEmpty()) return
+        }
         val names = sortedIds.map { id ->
             rowsById[id]?.displayName?.ifBlank { "(unnamed)" } ?: "(unnamed)"
         }
-        groups += DuplicateGroup(signature, reason, sortedIds, names)
+        groups += DuplicateGroup(signature, reason, sortedIds, names, accountsMap)
     }
 
     phoneIdx.forEach { (digits, ids) ->
@@ -479,6 +553,9 @@ private fun scanDuplicates(context: Context, smart: Boolean = false): List<Dupli
                 reason = "$name has the same number listed more than once ($variants). Keep \"${keepers.second}\" and remove the rest.",
                 contactIds = listOf(r.contactId),
                 displayNames = listOf(name),
+                accountKeysByContactId = mapOf(
+                    r.contactId to accountKeysByContactId[r.contactId]?.toSet().orEmpty()
+                ),
                 rowIdsToDelete = toDelete,
             )
         }

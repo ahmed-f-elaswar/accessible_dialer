@@ -1,0 +1,10 @@
+"filename", "language", "Kotlin", "XML", "comment", "blank", "total"
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\DialerInCallService.kt", "Kotlin", 47, 0, 15, 2, 64
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallActionReceiver.kt", "Kotlin", 35, 0, 11, 5, 51
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\call\InCallNotifier.kt", "Kotlin", 114, 0, 27, 13, 154
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\DialerApp.kt", "Kotlin", 6, 0, 5, 0, 11
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\contacts\ContactsScreen.kt", "Kotlin", 4, 0, 5, 1, 10
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\ui\recents\RecentsViewModel.kt", "Kotlin", -2, 0, 8, 1, 7
+"d:\code\accessible_dialer\app\src\main\java\com\accessible\dialer\util\ContactOps.kt", "Kotlin", 21, 0, 16, 2, 39
+"d:\code\accessible_dialer\app\src\main\res\values\strings.xml", "XML", 0, 6, 3, 1, 10
+"Total", "-", 225, 6, 90, 25, 346
