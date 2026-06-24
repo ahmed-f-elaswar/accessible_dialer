@@ -24,8 +24,8 @@ android {
         applicationId = "com.accessible.dialer"
         minSdk = 29
         targetSdk = 34
-        versionCode = 8
-        versionName = "2.0.2"
+        versionCode = 9
+        versionName = "2.1.0"
     }
 
     signingConfigs {

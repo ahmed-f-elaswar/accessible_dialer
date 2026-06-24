@@ -1,7 +1,7 @@
 {
-  "versionName": "2.0.2",
-  "versionCode": 8,
-  "tag": "v2.0.2",
-  "apkUrl": "https://github.com/ahmed-f-elaswar/accessible_dialer/releases/download/v2.0.2/app-release.apk",
-  "notes": "v2.0.2 — Notification controls + UX polish. New ongoing-call notification with Answer / Decline (when ringing) and Mute / Speaker / End call (mid-call) so the call is fully controllable from the shade; tapping the body returns to the in-call screen. Gentle call-waiting beep replaces the full ringtone when a second call comes in during another call. Default storage account for new contacts is now configurable in Settings → Tools. Speaker toggle now appears during outgoing dialing. Reply-with-message and Decline buttons swapped to keep Decline centered; new Reply with actions menu adds Reply with block (reject the call and block the caller). Dialpad input is now persisted across launches."
+  "versionName": "2.1.0",
+  "versionCode": 9,
+  "tag": "v2.1.0",
+  "apkUrl": "https://github.com/ahmed-f-elaswar/accessible_dialer/releases/download/v2.1.0/app-release.apk",
+  "notes": "v2.1.0 — App renamed to Dialer (الهاتف). Copy a phone number anywhere and the app prompts Call / Add to contact / Cancel on return. Share any text containing a number into the app for the same prompt. Active calls now shrink into a floating Picture-in-Picture window when you leave the screen, tap to return. Ongoing-call notification is fixed: Mute / Speaker / Hang up buttons actually fire, and tap goes back to the call screen. Recents now collapses every call from a contact — across all their numbers — into a single entry. Dialpad suggestions tolerate spaces, dashes, parentheses, and country-code variants; tap a suggestion to place the call instead of just filling the pad. Long-press the delete key to clear the input. Duplicate scan shows where each contact is stored and skips suggestions whose contacts live in different accounts. Contact picker now mirrors the main list with collapsible A-Z sections. Recents row 'Save as new contact' renamed to 'Add to contact' and routes through the existing Create new / Add to existing chooser."
 }
